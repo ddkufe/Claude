@@ -1,0 +1,56 @@
+<!-- sections/main-cart-items.liquid -->
+<div class="cart-section container">
+  <h1>{{ 'cart.general.title' | t }}</h1>
+
+  {% if cart.item_count > 0 %}
+    <form action="{{ routes.cart_url }}" method="post" novalidate>
+      <div>
+        {% for item in cart.items %}
+          <div class="cart-line">
+            <a href="{{ item.url }}">
+              {% if item.image %}
+                <img src="{{ item.image | image_url: width: 200 }}" alt="{{ item.image.alt | escape }}">
+              {% endif %}
+            </a>
+            <div>
+              <a href="{{ item.url }}" class="cart-line-title">{{ item.product.title }}</a>
+              {% unless item.product.has_only_default_variant %}
+                <div style="color:var(--color-text-muted);font-size:0.95rem;">{{ item.variant.title }}</div>
+              {% endunless %}
+              <div class="qty-stepper" data-qty-wrapper style="margin-top:10px;">
+                <button type="button" data-qty-minus aria-label="Decrease quantity">&minus;</button>
+                <input type="number" data-cart-qty name="updates[{{ item.key }}]" value="{{ item.quantity }}" min="0" inputmode="numeric">
+                <button type="button" data-qty-plus aria-label="Increase quantity">&plus;</button>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:800;">{{ item.final_line_price | money }}</div>
+              <a href="{{ item.url_to_remove }}" style="font-size:0.9rem;">{{ 'cart.general.remove' | t }}</a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="cart-summary" style="margin-top:32px;max-width:360px;margin-left:auto;">
+        <div style="display:flex;justify-content:space-between;font-size:1.2rem;font-weight:800;margin-bottom:20px;">
+          <span>{{ 'cart.general.subtotal' | t }}</span>
+          <span>{{ cart.total_price | money }}</span>
+        </div>
+        <button type="submit" name="checkout" class="btn btn--primary btn--large btn--full">{{ 'cart.general.checkout' | t }}</button>
+        <a href="{{ routes.all_products_collection_url | default: routes.root_url }}" class="btn btn--outline btn--full" style="margin-top:12px;">{{ 'cart.general.continue_shopping' | t }}</a>
+      </div>
+    </form>
+  {% else %}
+    <div class="cart-empty">
+      <p style="font-size:1.2rem;color:var(--color-text-muted);">{{ 'cart.general.empty' | t }}</p>
+      <a href="{{ routes.root_url }}" class="btn btn--primary btn--large">{{ 'cart.general.continue_shopping' | t }}</a>
+    </div>
+  {% endif %}
+</div>
+
+{% schema %}
+{
+  "name": "Cart items",
+  "settings": []
+}
+{% endschema %}

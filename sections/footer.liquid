@@ -1,0 +1,54 @@
+<!-- sections/footer.liquid -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>{{ section.settings.logo_text | default: shop.name }}</h4>
+        <p style="color:rgba(255,255,255,0.75);max-width:38ch;">{{ section.settings.blurb }}</p>
+        {% if section.settings.show_social %}
+          <div style="display:flex;gap:14px;margin-top:16px;">
+            {% if settings.social_instagram != blank %}<a href="{{ settings.social_instagram }}" aria-label="Instagram">Instagram</a>{% endif %}
+            {% if settings.social_facebook != blank %}<a href="{{ settings.social_facebook }}" aria-label="Facebook">Facebook</a>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+      <div>
+        <h4>Shop</h4>
+        <ul class="footer-nav">
+          {% for link in linklists[section.settings.menu].links %}
+            <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div>
+        <h4>Get in touch</h4>
+        <ul class="footer-nav">
+          {% if section.settings.support_email != blank %}
+            <li><a href="mailto:{{ section.settings.support_email }}">{{ section.settings.support_email }}</a></li>
+          {% endif %}
+          <li>Weekdays, 9am&ndash;5pm &mdash; real humans, no phone trees.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>&copy; {{ 'now' | date: '%Y' }} {{ shop.name }}. All rights reserved.</span>
+      <span>Made for hands of all strengths.</span>
+    </div>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Footer",
+  "settings": [
+    { "type": "text", "id": "logo_text", "label": "Store name", "default": "EasyGrip Kitchen Co." },
+    { "type": "textarea", "id": "blurb", "label": "Blurb", "default": "Kitchen tools designed with weaker grips, arthritis, and aging hands in mind — so every jar, lid, and container opens with ease." },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" },
+    { "type": "text", "id": "support_email", "label": "Support email", "default": "hello@easygripkitchen.com" },
+    { "type": "checkbox", "id": "show_social", "label": "Show social links", "default": true }
+  ]
+}
+{% endschema %}

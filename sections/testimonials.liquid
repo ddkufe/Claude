@@ -1,0 +1,48 @@
+<!-- sections/testimonials.liquid -->
+<div class="testimonials">
+  <div class="container">
+    <div class="section-heading">
+      <h2>{{ section.settings.heading }}</h2>
+    </div>
+    <div class="testimonial-grid">
+      {% for block in section.blocks %}
+        <div class="testimonial-card" {{ block.shopify_attributes }}>
+          <div class="stars" aria-hidden="true">
+            {% for i in (1..5) %}{% render 'icon', name: 'star' %}{% endfor %}
+          </div>
+          <p>&ldquo;{{ block.settings.quote }}&rdquo;</p>
+          <div class="testimonial-name">{{ block.settings.name }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Testimonials",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Real hands. Real relief." }
+  ],
+  "blocks": [
+    {
+      "type": "testimonial",
+      "name": "Testimonial",
+      "settings": [
+        { "type": "textarea", "id": "quote", "label": "Quote", "default": "My arthritis makes jars impossible. This gave me my independence back in the kitchen." },
+        { "type": "text", "id": "name", "label": "Name", "default": "Linda R." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Testimonials",
+      "blocks": [
+        { "type": "testimonial", "settings": { "quote": "My arthritis makes jars impossible. This gave me my independence back in the kitchen.", "name": "Linda R." } },
+        { "type": "testimonial", "settings": { "quote": "Bought it for my dad and now it's the first thing he shows visitors. So simple.", "name": "Marcus T." } },
+        { "type": "testimonial", "settings": { "quote": "I was skeptical but it works on every jar I've thrown at it, even stubborn pickle lids.", "name": "Dana K." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

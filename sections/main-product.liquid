@@ -1,0 +1,80 @@
+<!-- sections/main-product.liquid -->
+{% assign product = product %}
+<div class="product-section container">
+  <div class="product-grid-page">
+    <div>
+      <div class="product-gallery-main">
+        {% if product.featured_image %}
+          <img data-main-image src="{{ product.featured_image | image_url: width: 900 }}" alt="{{ product.featured_image.alt | escape }}" width="900" height="{{ 900 | divided_by: product.featured_image.aspect_ratio }}">
+        {% else %}
+          {{ 'product-1' | placeholder_svg_tag }}
+        {% endif %}
+      </div>
+      {% if product.images.size > 1 %}
+        <div class="product-thumbs">
+          {% for image in product.images %}
+            <img data-thumb data-full-src="{{ image | image_url: width: 900 }}" src="{{ image | image_url: width: 150 }}" alt="{{ image.alt | escape }}" style="{% if forloop.first %}border-color:var(--color-primary);{% endif %}">
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <span class="pill" style="margin-bottom:16px;">{% render 'icon', name: 'star' %} {{ product.metafields.reviews.rating.value.rating | default: '4.9' }} rating</span>
+      <h1>{{ product.title }}</h1>
+      <div class="product-price">
+        {{ product.price | money }}
+        {% if product.compare_at_price > product.price %}
+          <s style="color:var(--color-text-muted);font-size:1.1rem;font-weight:600;">{{ product.compare_at_price | money }}</s>
+        {% endif %}
+      </div>
+
+      <div class="product-trust">
+        <span class="pill">{% render 'icon', name: 'grip' %} One-handed grip</span>
+        <span class="pill">{% render 'icon', name: 'truck' %} Free shipping</span>
+        <span class="pill">{% render 'icon', name: 'shield' %} 30-day guarantee</span>
+      </div>
+
+      {% form 'product', product %}
+        {% unless product.has_only_default_variant %}
+          {% for option in product.options_with_values %}
+            <div style="margin-bottom:16px;">
+              <label for="Option-{{ option.name }}" style="font-weight:800;display:block;margin-bottom:8px;">{{ option.name }}</label>
+              <select id="Option-{{ option.name }}" name="options[{{ option.name }}]" style="min-height:56px;border-radius:12px;border:2px solid var(--color-border);padding:0 16px;font-size:1.05rem;width:100%;max-width:280px;">
+                {% for value in option.values %}
+                  <option value="{{ value }}" {% if option.selected_value == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endfor %}
+        {% endunless %}
+
+        <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+
+        <div class="product-form__quantity">
+          <label for="Quantity" style="font-weight:800;">{{ 'products.product.quantity' | t }}</label>
+          <div class="qty-stepper" data-qty-wrapper>
+            <button type="button" data-qty-minus aria-label="Decrease quantity">&minus;</button>
+            <input type="number" id="Quantity" name="quantity" value="1" min="1" inputmode="numeric">
+            <button type="button" data-qty-plus aria-label="Increase quantity">&plus;</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--large btn--full" {% unless product.available %}disabled{% endunless %}>
+          {% if product.available %}{{ 'products.product.add_to_cart' | t }} &mdash; {{ product.price | money }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}
+        </button>
+      {% endform %}
+
+      <div class="product-description rte">
+        {{ product.description }}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Main product",
+  "settings": []
+}
+{% endschema %}

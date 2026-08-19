@@ -1,0 +1,39 @@
+<!-- sections/header.liquid -->
+<header class="site-header">
+  <div class="header-bar container">
+    <button type="button" class="icon-btn nav-toggle" data-nav-open aria-label="Open menu">
+      {% render 'icon', name: 'menu' %}
+    </button>
+
+    <a href="{{ routes.root_url }}" class="header-logo">
+      {% render 'icon', name: 'grip' %}
+      {{ section.settings.logo_text | default: shop.name }}
+    </a>
+
+    <nav aria-label="Main">
+      <ul class="header-nav">
+        {% for link in linklists[section.settings.menu].links %}
+          <li><a href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>{{ link.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <a href="{{ routes.search_url }}" class="icon-btn" aria-label="Search">{% render 'icon', name: 'search' %}</a>
+      <a href="{{ routes.cart_url }}" class="icon-btn" aria-label="Cart, {{ cart.item_count }} items">
+        {% render 'icon', name: 'cart' %}
+        {% if cart.item_count > 0 %}<span class="cart-count">{{ cart.item_count }}</span>{% endif %}
+      </a>
+    </div>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    { "type": "text", "id": "logo_text", "label": "Store name", "default": "EasyGrip Kitchen Co." },
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }
+  ]
+}
+{% endschema %}

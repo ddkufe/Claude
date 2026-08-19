@@ -1,0 +1,8 @@
+{
+  "sections": {
+    "main": { "type": "main-product" },
+    "value_props": { "type": "value-props" },
+    "testimonials": { "type": "testimonials" }
+  },
+  "order": ["main", "value_props", "testimonials"]
+}

@@ -1,0 +1,35 @@
+<!-- sections/main-collection-product-grid.liquid -->
+<div class="product-section container">
+  <div class="section-heading">
+    <h1>{{ collection.title }}</h1>
+    {% if collection.description != blank %}
+      <p style="color:var(--color-text-muted);">{{ collection.description }}</p>
+    {% endif %}
+  </div>
+
+  {% paginate collection.products by 24 %}
+    {% if collection.products.size > 0 %}
+      <div class="product-grid">
+        {% for product in collection.products %}
+          {% render 'product-card', product: product %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="text-align:center;color:var(--color-text-muted);">No products found in this collection yet.</p>
+    {% endif %}
+
+    {% if paginate.pages > 1 %}
+      <div style="display:flex;justify-content:center;gap:10px;margin-top:40px;">
+        {% if paginate.previous %}<a class="btn btn--outline" href="{{ paginate.previous.url }}">Previous</a>{% endif %}
+        {% if paginate.next %}<a class="btn btn--outline" href="{{ paginate.next.url }}">Next</a>{% endif %}
+      </div>
+    {% endif %}
+  {% endpaginate %}
+</div>
+
+{% schema %}
+{
+  "name": "Collection grid",
+  "settings": []
+}
+{% endschema %}

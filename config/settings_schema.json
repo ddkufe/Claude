@@ -1,0 +1,33 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "EasyGrip Kitchen",
+    "theme_version": "1.0.0",
+    "theme_author": "EasyGrip Kitchen Co.",
+    "theme_documentation_url": "",
+    "theme_support_url": ""
+  },
+  {
+    "name": "Colors",
+    "settings": [
+      { "type": "color", "id": "color_primary", "label": "Primary (buttons, links)", "default": "#E4633A" },
+      { "type": "color", "id": "color_secondary", "label": "Secondary (accents)", "default": "#7C9473" },
+      { "type": "color", "id": "color_accent", "label": "Accent (highlights, stars)", "default": "#E8A33D" },
+      { "type": "color", "id": "color_background", "label": "Background", "default": "#FDF8F0" },
+      { "type": "color", "id": "color_text", "label": "Text", "default": "#33291F" }
+    ]
+  },
+  {
+    "name": "Layout",
+    "settings": [
+      { "type": "range", "id": "page_width", "label": "Page width", "min": 1000, "max": 1400, "step": 20, "unit": "px", "default": 1200 }
+    ]
+  },
+  {
+    "name": "Social media",
+    "settings": [
+      { "type": "text", "id": "social_instagram", "label": "Instagram URL" },
+      { "type": "text", "id": "social_facebook", "label": "Facebook URL" }
+    ]
+  }
+]

@@ -1,0 +1,31 @@
+<!-- sections/newsletter.liquid -->
+<div class="newsletter">
+  <div class="container">
+    <h2>{{ section.settings.heading }}</h2>
+    <p style="opacity:.9;max-width:48ch;margin:0 auto;">{{ section.settings.subheading }}</p>
+    {% form 'customer' %}
+      {% if form.posted_successfully? %}
+        <p style="font-weight:800;">Thanks for signing up!</p>
+      {% else %}
+        <input type="hidden" name="contact[tags]" value="newsletter">
+        <div class="newsletter-form">
+          <label for="NewsletterEmail" class="visually-hidden">Email address</label>
+          <input type="email" id="NewsletterEmail" name="contact[email]" placeholder="you@example.com" required>
+          <button type="submit" class="btn btn--primary">{{ section.settings.button_label }}</button>
+        </div>
+      {% endif %}
+    {% endform %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Newsletter",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Get 10% off your first order" },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "Join our list for easy-grip kitchen tips and new product launches." },
+    { "type": "text", "id": "button_label", "label": "Button label", "default": "Sign up" }
+  ],
+  "presets": [{ "name": "Newsletter" }]
+}
+{% endschema %}

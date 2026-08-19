@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "hero": { "type": "hero" },
+    "value_props": { "type": "value-props" },
+    "how_it_works": { "type": "how-it-works" },
+    "featured_product": { "type": "featured-product" },
+    "testimonials": { "type": "testimonials" },
+    "newsletter": { "type": "newsletter" }
+  },
+  "order": ["hero", "value_props", "how_it_works", "featured_product", "testimonials", "newsletter"]
+}

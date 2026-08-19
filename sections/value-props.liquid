@@ -1,0 +1,47 @@
+<!-- sections/value-props.liquid -->
+<div class="value-props container">
+  <div class="value-grid">
+    {% for block in section.blocks %}
+      <div class="value-card" {{ block.shopify_attributes }}>
+        <div class="icon-wrap">{% render 'icon', name: block.settings.icon %}</div>
+        <h3>{{ block.settings.heading }}</h3>
+        <p>{{ block.settings.text }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Value props",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "prop",
+      "name": "Value prop",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "grip", "options": [
+          { "value": "grip", "label": "Grip" },
+          { "value": "shield", "label": "Shield" },
+          { "value": "heart", "label": "Heart" },
+          { "value": "truck", "label": "Truck" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "text", "id": "heading", "label": "Heading", "default": "Easy on the hands" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "No squeezing, no twisting — just push and turn with your palm." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Value props",
+      "blocks": [
+        { "type": "prop", "settings": { "icon": "grip", "heading": "Built for weak grip", "text": "No squeezing or twisting needed — push up and let the teeth do the work." } },
+        { "type": "prop", "settings": { "icon": "shield", "heading": "Dishwasher safe", "text": "Food-safe, BPA-free materials that hold up to daily kitchen use." } },
+        { "type": "prop", "settings": { "icon": "heart", "heading": "Loved by caregivers", "text": "A favorite gift for parents and grandparents who refuse to ask for help." } },
+        { "type": "prop", "settings": { "icon": "truck", "heading": "Fast, free shipping", "text": "Every order ships free and arrives within 3-5 business days." } }
+      ]
+    }
+  ]
+}
+{% endschema %}
