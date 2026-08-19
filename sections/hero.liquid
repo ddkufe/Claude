@@ -1,7 +1,7 @@
 <!-- sections/hero.liquid -->
 <div class="hero">
   <div class="container hero-grid">
-    <div>
+    <div class="reveal">
       {% if section.settings.eyebrow != blank %}
         <span class="hero-eyebrow">{{ section.settings.eyebrow }}</span>
       {% endif %}
@@ -21,7 +21,7 @@
         <span class="pill">{% render 'icon', name: 'check' %} 30-day guarantee</span>
       </div>
     </div>
-    <div class="hero-media">
+    <div class="hero-media reveal">
       {% if section.settings.image != blank %}
         <img src="{{ section.settings.image | image_url: width: 1000 }}" alt="{{ section.settings.image.alt | default: section.settings.heading | escape }}" width="1000" height="{{ 1000 | divided_by: section.settings.image.aspect_ratio }}" loading="eager">
       {% else %}

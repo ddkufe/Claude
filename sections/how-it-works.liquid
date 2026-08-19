@@ -6,7 +6,7 @@
   </div>
   <div class="steps-grid">
     {% for block in section.blocks %}
-      <div class="step-card" {{ block.shopify_attributes }}>
+      <div class="step-card reveal" {{ block.shopify_attributes }}>
         <div class="step-number">{{ forloop.index }}</div>
         <h3>{{ block.settings.heading }}</h3>
         <p>{{ block.settings.text }}</p>

@@ -2,7 +2,7 @@
 <div class="value-props container">
   <div class="value-grid">
     {% for block in section.blocks %}
-      <div class="value-card" {{ block.shopify_attributes }}>
+      <div class="value-card reveal" {{ block.shopify_attributes }}>
         <div class="icon-wrap">{% render 'icon', name: block.settings.icon %}</div>
         <h3>{{ block.settings.heading }}</h3>
         <p>{{ block.settings.text }}</p>

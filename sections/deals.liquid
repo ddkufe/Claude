@@ -1,0 +1,68 @@
+<!-- sections/deals.liquid -->
+<div class="deals container">
+  <div class="section-heading reveal">
+    <h2>{{ section.settings.heading }}</h2>
+    <p style="color:var(--color-text-muted);">{{ section.settings.subheading }}</p>
+  </div>
+
+  <div class="deals-list">
+    {% for block in section.blocks %}
+      <details class="deal-item reveal" {% if forloop.first %}open{% endif %} {{ block.shopify_attributes }}>
+        <summary class="deal-summary">
+          <span class="deal-summary-left">
+            {{ block.settings.title }}
+            {% if block.settings.badge != blank %}<span class="deal-badge">{{ block.settings.badge }}</span>{% endif %}
+          </span>
+          <span class="deal-chevron">{% render 'icon', name: 'check' %}</span>
+        </summary>
+        <div class="deal-content-outer">
+          <div class="deal-content-inner">
+            <div class="deal-content">
+              <p>{{ block.settings.description }}</p>
+              {% if block.settings.code != blank %}
+                <div class="deal-code-row">
+                  <span class="deal-code">{{ block.settings.code }}</span>
+                  <button type="button" class="copy-btn" data-copy-code="{{ block.settings.code }}" data-default-label="Copy code">
+                    {% render 'icon', name: 'check' %}
+                    <span data-copy-label>Copy code</span>
+                  </button>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Deals & bundles",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Deals & bundle savings" },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "Save codes now, use them at checkout." }
+  ],
+  "blocks": [
+    {
+      "type": "deal",
+      "name": "Deal",
+      "settings": [
+        { "type": "text", "id": "title", "label": "Title", "default": "Buy 2, save 10%" },
+        { "type": "text", "id": "badge", "label": "Badge text", "default": "10% OFF" },
+        { "type": "textarea", "id": "description", "label": "Description", "default": "Add 2 or more items to your cart, then enter this code at checkout." },
+        { "type": "text", "id": "code", "label": "Discount code", "default": "GRIP10" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Deals & bundles",
+      "blocks": [
+        { "type": "deal", "settings": { "title": "Buy 2, save 10%", "badge": "10% OFF", "description": "Grab a second jar opener for another room, or gift one — add 2+ items to your cart and enter this code at checkout.", "code": "GRIP10" } },
+        { "type": "deal", "settings": { "title": "Buy 3+, save 20%", "badge": "20% OFF", "description": "Building a bundle for the whole family? Add 3 or more items and enter this code at checkout.", "code": "GRIP20" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -2,10 +2,34 @@
   "sections": {
     "hero": { "type": "hero" },
     "value_props": { "type": "value-props" },
+    "deals": {
+      "type": "deals",
+      "blocks": {
+        "deal-1": {
+          "type": "deal",
+          "settings": {
+            "title": "Buy 2, save 10%",
+            "badge": "10% OFF",
+            "description": "Grab a second jar opener for another room, or gift one — add 2+ items to your cart and enter this code at checkout.",
+            "code": "GRIP10"
+          }
+        },
+        "deal-2": {
+          "type": "deal",
+          "settings": {
+            "title": "Buy 3+, save 20%",
+            "badge": "20% OFF",
+            "description": "Building a bundle for the whole family? Add 3 or more items and enter this code at checkout.",
+            "code": "GRIP20"
+          }
+        }
+      },
+      "block_order": ["deal-1", "deal-2"]
+    },
     "how_it_works": { "type": "how-it-works" },
     "featured_product": { "type": "featured-product" },
     "testimonials": { "type": "testimonials" },
     "newsletter": { "type": "newsletter" }
   },
-  "order": ["hero", "value_props", "how_it_works", "featured_product", "testimonials", "newsletter"]
+  "order": ["hero", "value_props", "deals", "how_it_works", "featured_product", "testimonials", "newsletter"]
 }

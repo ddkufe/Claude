@@ -531,3 +531,164 @@ summary:focus-visible {
   text-decoration: none;
   border-bottom: 1px solid var(--color-border);
 }
+
+/* ---------- Motion ---------- */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Stagger children of a revealed group */
+.reveal-group.is-visible > * { transition-delay: calc(var(--reveal-index, 0) * 90ms); }
+
+.hero-media { animation: float 6s ease-in-out infinite; }
+
+.icon-btn:hover svg,
+.header-logo:hover svg { animation: wiggle .4s ease; }
+
+.cart-count.is-bumping { animation: cart-bump .4s ease; }
+
+.value-card,
+.step-card,
+.testimonial-card,
+.product-card {
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.value-card:hover,
+.testimonial-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lift); }
+.step-card:hover .step-number { transform: scale(1.1) rotate(-6deg); }
+.step-number { transition: transform .3s cubic-bezier(.34,1.56,.64,1); }
+
+.pill { transition: transform .2s ease; }
+.pill:hover { transform: translateY(-2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+}
+
+/* ---------- Deals & Bundles ---------- */
+
+.deals {
+  padding: 64px 0;
+}
+.deals-list {
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.deal-item {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.deal-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 26px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+.deal-summary::-webkit-details-marker { display: none; }
+.deal-summary-left { display: flex; align-items: center; gap: 14px; }
+.deal-badge {
+  background: var(--color-accent);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.deal-chevron {
+  flex-shrink: 0;
+  transition: transform .3s ease;
+}
+.deal-item[open] .deal-chevron { transform: rotate(180deg); }
+
+.deal-content-outer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .35s ease;
+}
+.deal-item[open] .deal-content-outer { grid-template-rows: 1fr; }
+.deal-content-inner { overflow: hidden; }
+.deal-content {
+  padding: 0 26px 26px;
+  color: var(--color-text-muted);
+}
+.deal-code-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.deal-code {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  background: var(--color-bg);
+  border: 2px dashed var(--color-secondary);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+}
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--color-secondary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .15s ease;
+}
+.copy-btn:hover { background: var(--color-secondary-dark); transform: translateY(-2px); }
+.copy-btn.is-copied { background: var(--color-success); }

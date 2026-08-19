@@ -56,4 +56,68 @@ document.addEventListener('DOMContentLoaded', function () {
       if (form) form.submit();
     });
   });
+
+  // Scroll-reveal animations (skipped entirely for reduced-motion users)
+  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var revealEls = document.querySelectorAll('.reveal');
+  if (!prefersReducedMotion && 'IntersectionObserver' in window && revealEls.length) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    revealEls.forEach(function (el, i) {
+      el.style.setProperty('--reveal-index', i % 6);
+      observer.observe(el);
+    });
+  } else {
+    revealEls.forEach(function (el) { el.classList.add('is-visible'); });
+  }
+
+  // Copy-to-clipboard for deal/bundle codes
+  document.querySelectorAll('[data-copy-code]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.getAttribute('data-copy-code');
+      var reset = function () {
+        btn.classList.remove('is-copied');
+        btn.querySelector('[data-copy-label]').textContent = btn.dataset.defaultLabel;
+      };
+      var showCopied = function () {
+        btn.classList.add('is-copied');
+        btn.querySelector('[data-copy-label]').textContent = 'Copied!';
+        clearTimeout(btn._copyTimeout);
+        btn._copyTimeout = setTimeout(reset, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(showCopied);
+      } else {
+        var temp = document.createElement('textarea');
+        temp.value = code;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        showCopied();
+      }
+    });
+  });
+});
+
+// Bump the cart icon whenever Shopify's cart count updates via a product form submit
+document.addEventListener('submit', function (e) {
+  if (e.target.matches('form[action*="/cart/add"]')) {
+    var count = document.querySelector('.cart-count');
+    if (count) {
+      setTimeout(function () {
+        count.classList.remove('is-bumping');
+        void count.offsetWidth;
+        count.classList.add('is-bumping');
+      }, 50);
+    }
+  }
 });
