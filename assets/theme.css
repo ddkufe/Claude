@@ -239,6 +239,7 @@ summary:focus-visible {
   display: flex; align-items: center; justify-content: center;
   padding: 0 4px;
 }
+.cart-count[hidden] { display: none; }
 
 .nav-toggle { display: none; }
 
@@ -318,7 +319,7 @@ summary:focus-visible {
 .value-card p { color: var(--color-text-muted); margin: 0; font-size: 1rem; }
 
 /* How it works */
-.steps { padding: 64px 0; }
+.steps { padding: 64px 0; scroll-margin-top: 96px; }
 .steps-header { text-align: center; max-width: 640px; margin: 0 auto 40px; }
 .steps-grid {
   display: grid;
@@ -338,6 +339,42 @@ summary:focus-visible {
   margin: 0 auto 16px;
 }
 .step-card p { color: var(--color-text-muted); }
+
+/* Lifestyle gallery */
+.lifestyle { padding: 64px 0; }
+.lifestyle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+.lifestyle-card {
+  margin: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  background: var(--color-surface);
+  transition: transform .3s ease, box-shadow .3s ease;
+}
+.lifestyle-card:hover { transform: translateY(-6px) scale(1.01); box-shadow: var(--shadow-lift); }
+.lifestyle-card img { width: 100%; aspect-ratio: 4/5; object-fit: cover; }
+.lifestyle-placeholder {
+  aspect-ratio: 4/5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 2px dashed var(--color-border);
+}
+.lifestyle-placeholder img { width: 40%; aspect-ratio: auto; opacity: .6; }
+.lifestyle-card figcaption {
+  padding: 16px 18px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--color-text);
+}
 
 /* Rich text / testimonials */
 .testimonials { padding: 64px 0; background: var(--color-surface); }
@@ -692,3 +729,85 @@ summary:focus-visible {
 }
 .copy-btn:hover { background: var(--color-secondary-dark); transform: translateY(-2px); }
 .copy-btn.is-copied { background: var(--color-success); }
+
+/* ---------- Bundle progress (live savings preview) ---------- */
+
+.bundle-progress {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  margin: 20px 0;
+  transition: border-color .3s ease, background-color .3s ease;
+}
+.bundle-progress.is-unlocked {
+  border-color: var(--color-secondary);
+  background: rgba(124, 148, 115, 0.08);
+}
+.bundle-progress-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  font-size: 1.02rem;
+}
+.bundle-progress-message .icon-pop {
+  display: inline-flex;
+  color: var(--color-secondary-dark);
+  transform: scale(0);
+  transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+}
+.bundle-progress.is-unlocked .icon-pop { transform: scale(1); }
+
+.bundle-progress-track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.bundle-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
+  border-radius: var(--radius-pill);
+  transition: width .45s cubic-bezier(.2,.7,.2,1);
+}
+.bundle-progress-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.bundle-progress-price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.bundle-progress-price[hidden] { display: none; }
+.bundle-original {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+.bundle-discounted {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.bundle-progress.is-unlocked .bundle-discounted { animation: pop-in .35s cubic-bezier(.34,1.56,.64,1); }
+.bundle-savings-note {
+  width: 100%;
+  color: var(--color-secondary-dark);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-top: 4px;
+}

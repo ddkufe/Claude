@@ -20,9 +20,9 @@
 
     <div class="header-actions">
       <a href="{{ routes.search_url }}" class="icon-btn" aria-label="Search">{% render 'icon', name: 'search' %}</a>
-      <a href="{{ routes.cart_url }}" class="icon-btn" aria-label="Cart, {{ cart.item_count }} items">
+      <a href="{{ routes.cart_url }}" class="icon-btn" aria-label="Cart, {{ cart.item_count }} items" id="CartIconLink">
         {% render 'icon', name: 'cart' %}
-        {% if cart.item_count > 0 %}<span class="cart-count">{{ cart.item_count }}</span>{% endif %}
+        <span class="cart-count" id="CartCount" {% if cart.item_count == 0 %}hidden{% endif %}>{{ cart.item_count }}</span>
       </a>
     </div>
   </div>

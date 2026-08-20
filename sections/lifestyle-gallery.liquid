@@ -1,0 +1,60 @@
+<!-- sections/lifestyle-gallery.liquid -->
+<div class="lifestyle container">
+  <div class="section-heading reveal">
+    <h2>{{ section.settings.heading }}</h2>
+    <p style="color:var(--color-text-muted);">{{ section.settings.subheading }}</p>
+  </div>
+  <div class="lifestyle-grid">
+    {% for block in section.blocks %}
+      <figure class="lifestyle-card reveal" {{ block.shopify_attributes }}>
+        {% if block.settings.image != blank %}
+          <img
+            src="{{ block.settings.image | image_url: width: 800 }}"
+            alt="{{ block.settings.image.alt | default: block.settings.caption | escape }}"
+            width="800"
+            height="{{ 800 | divided_by: block.settings.image.aspect_ratio }}"
+            loading="lazy"
+          >
+        {% else %}
+          <div class="lifestyle-placeholder">
+            {{ 'lifestyle-1' | placeholder_svg_tag }}
+            <span>Add a photo here</span>
+          </div>
+        {% endif %}
+        {% if block.settings.caption != blank %}
+          <figcaption>{{ block.settings.caption }}</figcaption>
+        {% endif %}
+      </figure>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Lifestyle gallery",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Real hands, real kitchens" },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "Add your own product photos here from the theme editor — replace these placeholders with real customers or lifestyle shots." }
+  ],
+  "blocks": [
+    {
+      "type": "photo",
+      "name": "Photo",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "caption", "label": "Caption", "default": "One-handed, every time." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Lifestyle gallery",
+      "blocks": [
+        { "type": "photo", "settings": { "caption": "Mounted once, used daily." } },
+        { "type": "photo", "settings": { "caption": "No twisting, no struggle." } },
+        { "type": "photo", "settings": { "caption": "A little independence back in the kitchen." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

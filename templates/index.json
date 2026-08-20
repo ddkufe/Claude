@@ -27,9 +27,10 @@
       "block_order": ["deal-1", "deal-2"]
     },
     "how_it_works": { "type": "how-it-works" },
+    "lifestyle_gallery": { "type": "lifestyle-gallery" },
     "featured_product": { "type": "featured-product" },
     "testimonials": { "type": "testimonials" },
     "newsletter": { "type": "newsletter" }
   },
-  "order": ["hero", "value_props", "deals", "how_it_works", "featured_product", "testimonials", "newsletter"]
+  "order": ["hero", "value_props", "deals", "how_it_works", "lifestyle_gallery", "featured_product", "testimonials", "newsletter"]
 }

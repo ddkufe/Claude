@@ -1,0 +1,34 @@
+{%- comment -%}
+  Live bundle-savings preview. Recalculated client-side as quantity changes.
+  Usage on product page: {% render 'bundle-progress', mode: 'product', unit_price: product.selected_or_first_available_variant.price, initial_qty: 1 %}
+  Usage on cart page:    {% render 'bundle-progress', mode: 'cart', cart_total: cart.total_price, cart_qty: cart.item_count %}
+{%- endcomment -%}
+
+<div
+  class="bundle-progress"
+  id="BundleProgress-{{ mode }}"
+  data-bundle-progress
+  data-mode="{{ mode }}"
+  data-unit-price="{{ unit_price | default: 0 }}"
+  data-qty="{{ initial_qty | default: cart_qty | default: 1 }}"
+  data-cart-total="{{ cart_total | default: 0 }}"
+>
+  <p class="bundle-progress-message" data-bundle-message>
+    <span class="icon-pop" data-bundle-icon>{% render 'icon', name: 'check' %}</span>
+    <span data-bundle-text>Add 2 to unlock 10% off</span>
+  </p>
+  <div class="bundle-progress-track">
+    <div class="bundle-progress-fill" data-bundle-fill></div>
+  </div>
+  <div class="bundle-progress-marks">
+    <span>1</span>
+    <span>2 &middot; 10% off</span>
+    <span>3+ &middot; 20% off</span>
+  </div>
+  <div class="bundle-progress-price" data-bundle-price hidden>
+    <span class="bundle-original" data-bundle-original></span>
+    <span class="bundle-discounted" data-bundle-discounted></span>
+    <span class="pill" data-bundle-code></span>
+    <span class="bundle-savings-note" data-bundle-note></span>
+  </div>
+</div>

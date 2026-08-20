@@ -60,6 +60,8 @@
           </div>
         </div>
 
+        {% render 'bundle-progress', mode: 'product', unit_price: product.selected_or_first_available_variant.price, initial_qty: 1 %}
+
         <button type="submit" class="btn btn--primary btn--large btn--full" {% unless product.available %}disabled{% endunless %}>
           {% if product.available %}{{ 'products.product.add_to_cart' | t }} &mdash; {{ product.price | money }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}
         </button>

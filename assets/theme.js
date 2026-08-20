@@ -1,5 +1,122 @@
 document.documentElement.classList.remove('no-js');
 
+// Bundle savings tiers, sorted richest-first. Keep in sync with the
+// GRIP10 / GRIP20 discount codes configured in Shopify admin.
+var BUNDLE_TIERS = [
+  { min: 3, pct: 20, code: 'GRIP20' },
+  { min: 2, pct: 10, code: 'GRIP10' }
+];
+var BUNDLE_MAX_MARK = 3;
+
+function formatMoney(cents) {
+  return '$' + (Math.round(cents) / 100).toFixed(2);
+}
+
+function getBundleTier(qty) {
+  for (var i = 0; i < BUNDLE_TIERS.length; i++) {
+    if (qty >= BUNDLE_TIERS[i].min) return BUNDLE_TIERS[i];
+  }
+  return null;
+}
+
+function renderBundleWidget(widget) {
+  var mode = widget.dataset.mode;
+  var qty = parseInt(widget.dataset.qty, 10) || 0;
+  var unitPrice = parseFloat(widget.dataset.unitPrice) || 0;
+  var cartTotal = parseFloat(widget.dataset.cartTotal) || 0;
+  var total = mode === 'cart' ? cartTotal : unitPrice * qty;
+  var tier = getBundleTier(qty);
+
+  var fill = widget.querySelector('[data-bundle-fill]');
+  var text = widget.querySelector('[data-bundle-text]');
+  var priceBlock = widget.querySelector('[data-bundle-price]');
+  var original = widget.querySelector('[data-bundle-original]');
+  var discounted = widget.querySelector('[data-bundle-discounted]');
+  var codeEl = widget.querySelector('[data-bundle-code]');
+  var note = widget.querySelector('[data-bundle-note]');
+
+  if (fill) fill.style.width = Math.min(100, (qty / BUNDLE_MAX_MARK) * 100) + '%';
+
+  if (tier) {
+    widget.classList.add('is-unlocked');
+    widget.dataset.activeCode = tier.code;
+    var discountedTotal = total * (1 - tier.pct / 100);
+    if (text) text.textContent = "You've unlocked " + tier.pct + '% off!';
+    if (priceBlock) priceBlock.hidden = false;
+    if (original) original.textContent = formatMoney(total);
+    if (discounted) discounted.textContent = formatMoney(discountedTotal);
+    if (codeEl) codeEl.textContent = 'Code ' + tier.code;
+    if (note) {
+      note.textContent = mode === 'cart'
+        ? "We'll apply " + tier.code + ' automatically when you head to checkout.'
+        : 'Add to cart, then use code ' + tier.code + ' at checkout.';
+    }
+  } else {
+    widget.classList.remove('is-unlocked');
+    delete widget.dataset.activeCode;
+    var nextTier = BUNDLE_TIERS[BUNDLE_TIERS.length - 1];
+    var remaining = Math.max(0, nextTier.min - qty);
+    if (text) {
+      text.textContent = remaining > 0
+        ? 'Add ' + remaining + ' more to unlock ' + nextTier.pct + '% off'
+        : 'Add more to unlock bundle savings';
+    }
+    if (priceBlock) priceBlock.hidden = true;
+  }
+}
+
+function updateCartLine(key, quantity, lineEl) {
+  fetch('/cart/change.js', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ id: key, quantity: quantity })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (cart) {
+      if (quantity === 0 || cart.item_count === 0) {
+        window.location.reload();
+        return;
+      }
+
+      if (lineEl) {
+        var updatedItem = null;
+        for (var i = 0; i < cart.items.length; i++) {
+          if (cart.items[i].key === key) { updatedItem = cart.items[i]; break; }
+        }
+        if (updatedItem) {
+          var priceEl = lineEl.querySelector('[data-line-price]');
+          if (priceEl) priceEl.textContent = formatMoney(updatedItem.final_line_price);
+        } else {
+          lineEl.remove();
+        }
+      }
+
+      var subtotalEl = document.querySelector('[data-cart-subtotal]');
+      if (subtotalEl) subtotalEl.textContent = formatMoney(cart.total_price);
+
+      var countEl = document.getElementById('CartCount');
+      if (countEl) {
+        countEl.textContent = cart.item_count;
+        countEl.hidden = cart.item_count === 0;
+        countEl.classList.remove('is-bumping');
+        void countEl.offsetWidth;
+        countEl.classList.add('is-bumping');
+      }
+
+      var cartWidget = document.querySelector('[data-bundle-progress][data-mode="cart"]');
+      if (cartWidget) {
+        cartWidget.dataset.qty = cart.item_count;
+        cartWidget.dataset.cartTotal = cart.total_price;
+        renderBundleWidget(cartWidget);
+      }
+    })
+    .catch(function () {
+      // Network hiccup — fall back to a normal full-page cart update.
+      var form = lineEl && lineEl.closest('form');
+      if (form) form.submit();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   // Mobile nav drawer
   var nav = document.getElementById('MobileNav');
@@ -49,13 +166,56 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // Cart line quantity auto-submit
+  // Cart line quantity changes go through the AJAX Cart API so totals and
+  // the bundle-savings widget update live, without a full page reload.
   document.querySelectorAll('[data-cart-qty]').forEach(function (input) {
     input.addEventListener('change', function () {
-      var form = input.closest('form');
-      if (form) form.submit();
+      var line = input.closest('[data-cart-line]');
+      var key = line && line.dataset.lineKey;
+      var quantity = Math.max(0, parseInt(input.value, 10) || 0);
+      if (!key) return;
+      updateCartLine(key, quantity, line);
     });
   });
+
+  // Product-page bundle widget: recompute purely client-side from the
+  // known unit price whenever the quantity stepper changes.
+  document.querySelectorAll('[data-bundle-progress][data-mode="product"]').forEach(function (widget) {
+    var form = widget.closest('form');
+    var qtyInput = form && form.querySelector('#Quantity');
+    renderBundleWidget(widget);
+    if (qtyInput) {
+      qtyInput.addEventListener('change', function () {
+        widget.dataset.qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+        renderBundleWidget(widget);
+      });
+      qtyInput.addEventListener('input', function () {
+        widget.dataset.qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+        renderBundleWidget(widget);
+      });
+    }
+  });
+
+  // Cart-page bundle widget: render initial state from the cart totals
+  // Liquid already embedded in its data attributes.
+  document.querySelectorAll('[data-bundle-progress][data-mode="cart"]').forEach(function (widget) {
+    renderBundleWidget(widget);
+  });
+
+  // If a bundle tier is unlocked when the shopper checks out, route them
+  // through Shopify's code-application URL first so the discount is
+  // already applied by the time they reach checkout.
+  var cartForm = document.getElementById('CartForm');
+  if (cartForm) {
+    cartForm.addEventListener('submit', function (e) {
+      var widget = document.querySelector('[data-bundle-progress][data-mode="cart"]');
+      var code = widget && widget.dataset.activeCode;
+      if (code) {
+        e.preventDefault();
+        window.location.href = '/discount/' + encodeURIComponent(code) + '?redirect=' + encodeURIComponent('/checkout');
+      }
+    });
+  }
 
   // Scroll-reveal animations (skipped entirely for reduced-motion users)
   var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

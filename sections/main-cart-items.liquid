@@ -3,10 +3,10 @@
   <h1>{{ 'cart.general.title' | t }}</h1>
 
   {% if cart.item_count > 0 %}
-    <form action="{{ routes.cart_url }}" method="post" novalidate>
-      <div>
+    <form action="{{ routes.cart_url }}" method="post" novalidate id="CartForm">
+      <div id="CartLines">
         {% for item in cart.items %}
-          <div class="cart-line">
+          <div class="cart-line" data-cart-line data-line-key="{{ item.key }}" data-unit-price="{{ item.final_price }}">
             <a href="{{ item.url }}">
               {% if item.image %}
                 <img src="{{ item.image | image_url: width: 200 }}" alt="{{ item.image.alt | escape }}">
@@ -24,19 +24,21 @@
               </div>
             </div>
             <div style="text-align:right;">
-              <div style="font-weight:800;">{{ item.final_line_price | money }}</div>
+              <div style="font-weight:800;" data-line-price>{{ item.final_line_price | money }}</div>
               <a href="{{ item.url_to_remove }}" style="font-size:0.9rem;">{{ 'cart.general.remove' | t }}</a>
             </div>
           </div>
         {% endfor %}
       </div>
 
+      {% render 'bundle-progress', mode: 'cart', cart_total: cart.total_price, cart_qty: cart.item_count %}
+
       <div class="cart-summary" style="margin-top:32px;max-width:360px;margin-left:auto;">
         <div style="display:flex;justify-content:space-between;font-size:1.2rem;font-weight:800;margin-bottom:20px;">
           <span>{{ 'cart.general.subtotal' | t }}</span>
-          <span>{{ cart.total_price | money }}</span>
+          <span data-cart-subtotal>{{ cart.total_price | money }}</span>
         </div>
-        <button type="submit" name="checkout" class="btn btn--primary btn--large btn--full">{{ 'cart.general.checkout' | t }}</button>
+        <button type="submit" name="checkout" id="CheckoutButton" class="btn btn--primary btn--large btn--full">{{ 'cart.general.checkout' | t }}</button>
         <a href="{{ routes.all_products_collection_url | default: routes.root_url }}" class="btn btn--outline btn--full" style="margin-top:12px;">{{ 'cart.general.continue_shopping' | t }}</a>
       </div>
     </form>
