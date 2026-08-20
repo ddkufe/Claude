@@ -160,9 +160,33 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-thumb]').forEach(function (thumb) {
     thumb.addEventListener('click', function () {
       var main = document.querySelector('[data-main-image]');
-      if (main && thumb.dataset.fullSrc) main.src = thumb.dataset.fullSrc;
-      document.querySelectorAll('[data-thumb]').forEach(function (t) { t.style.borderColor = 'transparent'; });
-      thumb.style.borderColor = 'var(--color-primary)';
+      if (main && thumb.dataset.fullSrc) {
+        main.removeAttribute('srcset');
+        main.src = thumb.dataset.fullSrc;
+        main.classList.remove('is-swapping');
+        void main.offsetWidth;
+        main.classList.add('is-swapping');
+      }
+      document.querySelectorAll('[data-thumb]').forEach(function (t) { t.classList.remove('is-active'); });
+      thumb.classList.add('is-active');
+    });
+  });
+
+  // Ripple feedback on tappable controls
+  var rippleTargets = '.icon-btn, .btn, .copy-btn, .product-thumb, .qty-stepper button, .deal-summary';
+  document.querySelectorAll(rippleTargets).forEach(function (el) {
+    el.classList.add('ripple-host');
+    el.addEventListener('pointerdown', function (e) {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var rect = el.getBoundingClientRect();
+      var size = Math.max(rect.width, rect.height);
+      var ripple = document.createElement('span');
+      ripple.className = 'ripple';
+      ripple.style.width = ripple.style.height = size + 'px';
+      ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+      ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+      el.appendChild(ripple);
+      ripple.addEventListener('animationend', function () { ripple.remove(); });
     });
   });
 

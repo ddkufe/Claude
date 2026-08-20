@@ -3,17 +3,33 @@
 <div class="product-section container">
   <div class="product-grid-page">
     <div>
-      <div class="product-gallery-main">
+      <div class="product-gallery-main" data-zoom-frame>
         {% if product.featured_image %}
-          <img data-main-image src="{{ product.featured_image | image_url: width: 900 }}" alt="{{ product.featured_image.alt | escape }}" width="900" height="{{ 900 | divided_by: product.featured_image.aspect_ratio }}">
+          <img
+            data-main-image
+            src="{{ product.featured_image | image_url: width: 900 }}"
+            srcset="{{ product.featured_image | image_url: width: 600 }} 600w, {{ product.featured_image | image_url: width: 900 }} 900w, {{ product.featured_image | image_url: width: 1400 }} 1400w"
+            sizes="(max-width: 860px) 92vw, 46vw"
+            alt="{{ product.featured_image.alt | default: product.title | escape }}"
+            width="900"
+            height="{{ 900 | divided_by: product.featured_image.aspect_ratio }}"
+          >
+          <span class="zoom-hint">{% render 'icon', name: 'zoom' %} Hover to zoom</span>
         {% else %}
-          {{ 'product-1' | placeholder_svg_tag }}
+          <div class="media-placeholder">{{ 'product-1' | placeholder_svg_tag }}</div>
+        {% endif %}
+
+        {% if product.compare_at_price > product.price %}
+          {%- assign saved = product.compare_at_price | minus: product.price -%}
+          <span class="media-badge media-badge--sale">Save {{ saved | money }}</span>
         {% endif %}
       </div>
       {% if product.images.size > 1 %}
         <div class="product-thumbs">
           {% for image in product.images %}
-            <img data-thumb data-full-src="{{ image | image_url: width: 900 }}" src="{{ image | image_url: width: 150 }}" alt="{{ image.alt | escape }}" style="{% if forloop.first %}border-color:var(--color-primary);{% endif %}">
+            <button type="button" class="product-thumb{% if forloop.first %} is-active{% endif %}" data-thumb data-full-src="{{ image | image_url: width: 1400 }}" aria-label="View image {{ forloop.index }}">
+              <img src="{{ image | image_url: width: 200 }}" alt="{{ image.alt | default: product.title | escape }}" loading="lazy">
+            </button>
           {% endfor %}
         </div>
       {% endif %}

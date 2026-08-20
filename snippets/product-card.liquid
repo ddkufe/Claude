@@ -4,19 +4,31 @@
     {% if product.featured_image %}
       <img
         src="{{ product.featured_image | image_url: width: 600 }}"
+        srcset="{{ product.featured_image | image_url: width: 400 }} 400w, {{ product.featured_image | image_url: width: 600 }} 600w, {{ product.featured_image | image_url: width: 900 }} 900w"
+        sizes="(max-width: 700px) 90vw, 300px"
         alt="{{ product.featured_image.alt | default: product.title | escape }}"
         loading="lazy"
         width="600"
         height="{{ 600 | divided_by: product.featured_image.aspect_ratio }}"
       >
     {% else %}
-      {{ 'product-1' | placeholder_svg_tag }}
+      <div class="media-placeholder">{{ 'product-1' | placeholder_svg_tag }}</div>
+    {% endif %}
+
+    {% if product.compare_at_price > product.price %}
+      {%- assign saved = product.compare_at_price | minus: product.price -%}
+      <span class="media-badge media-badge--sale">Save {{ saved | money }}</span>
+    {% elsif product.available == false %}
+      <span class="media-badge media-badge--muted">Sold out</span>
     {% endif %}
   </div>
   <div class="product-card-body">
     <div class="product-card-title">{{ product.title }}</div>
     <div class="product-card-price">
       {% if product.price_varies %}From {% endif %}{{ product.price | money }}
+      {% if product.compare_at_price > product.price %}
+        <s class="price-compare">{{ product.compare_at_price | money }}</s>
+      {% endif %}
     </div>
   </div>
 </a>

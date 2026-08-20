@@ -1,8 +1,25 @@
 {
   "sections": {
     "main": { "type": "main-product" },
-    "value_props": { "type": "value-props" },
-    "testimonials": { "type": "testimonials" }
+    "value_props": {
+      "type": "value-props",
+      "blocks": {
+        "vp-1": { "type": "prop", "settings": { "icon": "grip", "heading": "Built for weak grip", "text": "No squeezing or twisting needed — push up and let the teeth do the work." } },
+        "vp-2": { "type": "prop", "settings": { "icon": "shield", "heading": "Dishwasher safe", "text": "Food-safe, BPA-free materials that hold up to daily kitchen use." } },
+        "vp-3": { "type": "prop", "settings": { "icon": "truck", "heading": "Fast, free shipping", "text": "Every order ships free and arrives within 3-5 business days." } }
+      },
+      "block_order": ["vp-1", "vp-2", "vp-3"]
+    },
+    "testimonials": {
+      "type": "testimonials",
+      "settings": { "heading": "Real hands. Real relief." },
+      "blocks": {
+        "t-1": { "type": "testimonial", "settings": { "quote": "My arthritis makes jars impossible. This gave me my independence back in the kitchen.", "name": "Linda R." } },
+        "t-2": { "type": "testimonial", "settings": { "quote": "Bought it for my dad and now it's the first thing he shows visitors. So simple.", "name": "Marcus T." } },
+        "t-3": { "type": "testimonial", "settings": { "quote": "I was skeptical but it works on every jar I've thrown at it, even stubborn pickle lids.", "name": "Dana K." } }
+      },
+      "block_order": ["t-1", "t-2", "t-3"]
+    }
   },
   "order": ["main", "value_props", "testimonials"]
 }

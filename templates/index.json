@@ -1,9 +1,35 @@
 {
   "sections": {
-    "hero": { "type": "hero" },
-    "value_props": { "type": "value-props" },
+    "hero": {
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Built for weaker grips",
+        "heading": "Open any jar. One hand. Zero struggle.",
+        "subheading": "Our under-cabinet jar opener mounts once and grips every lid so you don't have to. Designed for arthritis, weak grip, and anyone tired of fighting stuck jars.",
+        "product": "under-cabinet-jar-opener",
+        "badge_text": "Fits 99% of lids",
+        "show_price": true,
+        "button_label": "Shop the jar opener",
+        "button_label_2": "See how it works",
+        "button_url_2": "#how-it-works"
+      }
+    },
+    "value_props": {
+      "type": "value-props",
+      "blocks": {
+        "vp-1": { "type": "prop", "settings": { "icon": "grip", "heading": "Built for weak grip", "text": "No squeezing or twisting needed — push up and let the teeth do the work." } },
+        "vp-2": { "type": "prop", "settings": { "icon": "shield", "heading": "Dishwasher safe", "text": "Food-safe, BPA-free materials that hold up to daily kitchen use." } },
+        "vp-3": { "type": "prop", "settings": { "icon": "heart", "heading": "Loved by caregivers", "text": "A favorite gift for parents and grandparents who refuse to ask for help." } },
+        "vp-4": { "type": "prop", "settings": { "icon": "truck", "heading": "Fast, free shipping", "text": "Every order ships free and arrives within 3-5 business days." } }
+      },
+      "block_order": ["vp-1", "vp-2", "vp-3", "vp-4"]
+    },
     "deals": {
       "type": "deals",
+      "settings": {
+        "heading": "Deals & bundle savings",
+        "subheading": "Save codes now, use them at checkout."
+      },
       "blocks": {
         "deal-1": {
           "type": "deal",
@@ -26,11 +52,66 @@
       },
       "block_order": ["deal-1", "deal-2"]
     },
-    "how_it_works": { "type": "how-it-works" },
-    "lifestyle_gallery": { "type": "lifestyle-gallery" },
-    "featured_product": { "type": "featured-product" },
-    "testimonials": { "type": "testimonials" },
-    "newsletter": { "type": "newsletter" }
+    "how_it_works": {
+      "type": "how-it-works",
+      "settings": {
+        "heading": "Three steps. No struggle.",
+        "subheading": "Mount it once and every jar after that opens in seconds."
+      },
+      "blocks": {
+        "step-1": { "type": "step", "settings": { "heading": "Mount it once", "text": "Peel-and-stick or screw it under any cabinet or shelf. Takes under 5 minutes." } },
+        "step-2": { "type": "step", "settings": { "heading": "Push the jar up", "text": "Press the lid into the grip — the teeth lock on so your hand doesn't have to." } },
+        "step-3": { "type": "step", "settings": { "heading": "Twist with your palm", "text": "Turn the jar, not your wrist. The lid loosens instantly, every time." } }
+      },
+      "block_order": ["step-1", "step-2", "step-3"]
+    },
+    "featured_product": {
+      "type": "featured-product",
+      "settings": {
+        "heading": "Our bestseller",
+        "product": "under-cabinet-jar-opener"
+      }
+    },
+    "lifestyle_gallery": {
+      "type": "lifestyle-gallery",
+      "settings": {
+        "heading": "Real hands, real kitchens",
+        "subheading": "Add your own product photos here from the theme editor — replace these placeholders with real customer or lifestyle shots."
+      },
+      "blocks": {
+        "photo-1": { "type": "photo", "settings": { "caption": "Mounted once, used daily." } },
+        "photo-2": { "type": "photo", "settings": { "caption": "No twisting, no struggle." } },
+        "photo-3": { "type": "photo", "settings": { "caption": "A little independence back in the kitchen." } }
+      },
+      "block_order": ["photo-1", "photo-2", "photo-3"]
+    },
+    "testimonials": {
+      "type": "testimonials",
+      "settings": { "heading": "Real hands. Real relief." },
+      "blocks": {
+        "t-1": { "type": "testimonial", "settings": { "quote": "My arthritis makes jars impossible. This gave me my independence back in the kitchen.", "name": "Linda R." } },
+        "t-2": { "type": "testimonial", "settings": { "quote": "Bought it for my dad and now it's the first thing he shows visitors. So simple.", "name": "Marcus T." } },
+        "t-3": { "type": "testimonial", "settings": { "quote": "I was skeptical but it works on every jar I've thrown at it, even stubborn pickle lids.", "name": "Dana K." } }
+      },
+      "block_order": ["t-1", "t-2", "t-3"]
+    },
+    "newsletter": {
+      "type": "newsletter",
+      "settings": {
+        "heading": "Get 10% off your first order",
+        "subheading": "Join our list for easy-grip kitchen tips and new product launches.",
+        "button_label": "Sign up"
+      }
+    }
   },
-  "order": ["hero", "value_props", "deals", "how_it_works", "lifestyle_gallery", "featured_product", "testimonials", "newsletter"]
+  "order": [
+    "hero",
+    "value_props",
+    "deals",
+    "how_it_works",
+    "featured_product",
+    "lifestyle_gallery",
+    "testimonials",
+    "newsletter"
+  ]
 }
