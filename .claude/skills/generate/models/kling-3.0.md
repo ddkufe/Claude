@@ -54,6 +54,14 @@ Verified against Kie AI's live docs:
   jobs (array, even for one image); omit entirely for pure text-to-video.
 - `duration` is a string, e.g. `"5"`; `mode` is `"std"` (720p) or `"pro"`
   (1080p) per the cost table above.
+- Multi-shot: set `multi_shots: true` and pass `multi_prompt`, an array of
+  `{prompt, duration}`. Each shot prompt is capped at **500 characters** —
+  longer prompts are rejected outright, so validate before submitting.
+  Observed: per-shot `duration` values are effectively normalised to ~2s
+  each, and the clip runs ~2s x number of shots regardless of the top-level
+  `duration` (4 shots -> 8.04s, 3 shots -> 6.04s, both with `duration: "8"`).
+  Budget shots, not seconds. Note also that `sound` DEFAULTS TO ON in
+  multi-shot mode — set `sound: false` explicitly for silent output.
 - `kling_elements` (named subject references) locks the appearance of a
   specific subject — use it whenever the product/character must match real
   reference photos, especially when the start frame does not show the
