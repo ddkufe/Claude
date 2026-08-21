@@ -54,9 +54,22 @@ Verified against Kie AI's live docs:
   jobs (array, even for one image); omit entirely for pure text-to-video.
 - `duration` is a string, e.g. `"5"`; `mode` is `"std"` (720p) or `"pro"`
   (1080p) per the cost table above.
-- `kling_elements` (named subject references, e.g. `@element_dog` in the
-  prompt tied to reference image URLs) is available for advanced
-  character-consistency jobs — see the docs page if a request needs it.
+- `kling_elements` (named subject references) locks the appearance of a
+  specific subject — use it whenever the product/character must match real
+  reference photos, especially when the start frame does not show the
+  subject. Verified shape:
+
+  ```json
+  "kling_elements": [
+    { "name": "element_opener",
+      "description": "short descriptor",
+      "element_input_urls": ["https://...a.jpg", "https://...b.jpg"] }
+  ]
+  ```
+
+  Reference it in the prompt as `@element_opener` (the array `name` omits
+  the `@`). 2–4 image URLs per element, max 10MB each, max 3 elements per
+  task, and each `@element` costs 37 characters of prompt budget.
 - Local reference images need a public URL first (Kie AI's file-upload
   endpoint works for this).
 
