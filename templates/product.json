@@ -1,6 +1,20 @@
 {
   "sections": {
     "main": { "type": "main-product" },
+    "shipping_guarantee": {
+      "type": "shipping-guarantee",
+      "settings": {
+        "heading": "What to expect",
+        "footnote": "Questions before you order? Email us and a real person will answer — usually same day."
+      },
+      "blocks": {
+        "row-1": { "type": "row", "settings": { "icon": "truck", "title": "Free shipping on every order", "text": "No minimum, no surprise fees at checkout." } },
+        "row-2": { "type": "row", "settings": { "icon": "check", "title": "Delivery in 10–18 business days", "text": "We ship direct from our supplier to keep the price at $19.99 instead of $40. It takes longer than Amazon — we'd rather tell you now than have you wonder." } },
+        "row-3": { "type": "row", "settings": { "icon": "shield", "title": "30-day money-back guarantee", "text": "If it doesn't grip, doesn't fit your cabinet, or just isn't right, message us within 30 days for a full refund." } },
+        "row-4": { "type": "row", "settings": { "icon": "heart", "title": "Built for weaker hands", "text": "Designed for arthritis, reduced grip strength, and one-handed use — not a generic kitchen gadget." } }
+      },
+      "block_order": ["row-1", "row-2", "row-3", "row-4"]
+    },
     "value_props": {
       "type": "value-props",
       "blocks": {
@@ -21,5 +35,5 @@
       "block_order": ["t-1", "t-2", "t-3"]
     }
   },
-  "order": ["main", "value_props", "testimonials"]
+  "order": ["main", "shipping_guarantee", "value_props", "testimonials"]
 }

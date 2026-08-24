@@ -1,0 +1,67 @@
+<!-- sections/shipping-guarantee.liquid -->
+{%- comment -%}
+  Sets expectations before the customer commits. Delivery windows are
+  editable so they can be kept honest as fulfillment changes.
+{%- endcomment -%}
+
+<div class="trust-block container">
+  <div class="trust-card reveal">
+    {% if section.settings.heading != blank %}
+      <h2 class="trust-heading">{{ section.settings.heading }}</h2>
+    {% endif %}
+
+    <ul class="trust-list">
+      {% for block in section.blocks %}
+        <li class="trust-row" {{ block.shopify_attributes }}>
+          <span class="trust-icon">{% render 'icon', name: block.settings.icon %}</span>
+          <span class="trust-copy">
+            <strong>{{ block.settings.title }}</strong>
+            <span>{{ block.settings.text }}</span>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if section.settings.footnote != blank %}
+      <p class="trust-footnote">{{ section.settings.footnote }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Shipping & guarantee",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "What to expect" },
+    { "type": "textarea", "id": "footnote", "label": "Footnote", "default": "Questions before you order? Email us and a real person will answer — usually same day." }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Row",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "truck", "options": [
+          { "value": "truck", "label": "Truck" },
+          { "value": "shield", "label": "Shield" },
+          { "value": "heart", "label": "Heart" },
+          { "value": "grip", "label": "Grip" },
+          { "value": "check", "label": "Check" }
+        ]},
+        { "type": "text", "id": "title", "label": "Title", "default": "Free shipping" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "On every order, no minimum." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Shipping & guarantee",
+      "blocks": [
+        { "type": "row", "settings": { "icon": "truck", "title": "Free shipping on every order", "text": "No minimum, no surprise fees at checkout." } },
+        { "type": "row", "settings": { "icon": "check", "title": "Delivery in 10–18 business days", "text": "We ship direct from our supplier to keep the price at $19.99 instead of $40. It takes longer than Amazon — we'd rather tell you now than have you wonder." } },
+        { "type": "row", "settings": { "icon": "shield", "title": "30-day money-back guarantee", "text": "If it doesn't grip, doesn't fit your cabinet, or just isn't right, message us within 30 days for a full refund." } },
+        { "type": "row", "settings": { "icon": "heart", "title": "Built for weaker hands", "text": "Designed for arthritis, reduced grip strength, and one-handed use — not a generic kitchen gadget." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

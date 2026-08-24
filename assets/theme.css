@@ -379,6 +379,39 @@ summary:focus-visible {
 }
 .step-card p { color: var(--color-text-muted); }
 
+/* Shipping & guarantee trust block */
+.trust-block { padding: 8px 0 56px; }
+.trust-card {
+  max-width: 780px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  box-shadow: var(--shadow-soft);
+}
+.trust-heading { margin-bottom: 22px; }
+.trust-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.trust-row { display: flex; align-items: flex-start; gap: 16px; }
+.trust-icon {
+  flex-shrink: 0;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--color-primary-rgb), .12);
+  color: var(--color-primary-dark);
+}
+.trust-copy { display: flex; flex-direction: column; gap: 4px; }
+.trust-copy strong { font-family: var(--font-heading); font-size: 1.1rem; font-weight: 600; }
+.trust-copy span { color: var(--color-text-muted); }
+.trust-footnote {
+  margin: 26px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.98rem;
+}
+
 /* Lifestyle gallery */
 .lifestyle { padding: 64px 0; }
 .lifestyle-grid {
