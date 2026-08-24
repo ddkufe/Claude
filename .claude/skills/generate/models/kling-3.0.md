@@ -54,6 +54,11 @@ Verified against Kie AI's live docs:
   jobs (array, even for one image); omit entirely for pure text-to-video.
 - `duration` is a string, e.g. `"5"`; `mode` is `"std"` (720p) or `"pro"`
   (1080p) per the cost table above.
+- `sound: true` on a single-shot job costs noticeably more than `sound:
+  false` — observed 81 credits vs. 54 credits for the same 3s/pro/9:16
+  request (a ~50% premium), not documented on Kie AI's pricing page.
+  Re-quote before enabling sound rather than assuming it's free relative to
+  a silent quote already given.
 - Multi-shot: set `multi_shots: true` and pass `multi_prompt`, an array of
   `{prompt, duration}`. Each shot prompt is capped at **500 characters** —
   longer prompts are rejected outright, so validate before submitting.
