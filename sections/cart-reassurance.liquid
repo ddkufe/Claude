@@ -1,0 +1,97 @@
+<!-- sections/cart-reassurance.liquid -->
+{%- comment -%}
+  Last-mile reassurance shown directly above the checkout button.
+  Shopify's checkout itself isn't themeable on non-Plus plans, so this
+  is the final surface we control before the customer hands over money.
+{%- endcomment -%}
+
+<div class="reassure container">
+  {% if section.settings.heading != blank %}
+    <h2 class="reassure-heading">{{ section.settings.heading }}</h2>
+  {% endif %}
+
+  {%- assign photo_blocks = section.blocks | where: 'type', 'photo' -%}
+  {% if photo_blocks.size > 0 %}
+    <div class="reassure-photos">
+      {% for block in photo_blocks %}
+        <figure class="reassure-photo" {{ block.shopify_attributes }}>
+          {% if block.settings.image != blank %}
+            <img
+              src="{{ block.settings.image | image_url: width: 500 }}"
+              alt="{{ block.settings.image.alt | default: block.settings.caption | escape }}"
+              width="500"
+              height="{{ 500 | divided_by: block.settings.image.aspect_ratio }}"
+              loading="lazy"
+            >
+          {% else %}
+            <div class="reassure-photo-empty">
+              {% render 'icon', name: 'heart' %}
+              <span>Photo slot</span>
+            </div>
+          {% endif %}
+          {% if block.settings.caption != blank %}
+            <figcaption>{{ block.settings.caption }}</figcaption>
+          {% endif %}
+        </figure>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <ul class="reassure-points">
+    {% for block in section.blocks %}
+      {% if block.type == 'point' %}
+        <li class="reassure-point" {{ block.shopify_attributes }}>
+          <span class="reassure-icon">{% render 'icon', name: block.settings.icon %}</span>
+          <span>
+            <strong>{{ block.settings.title }}</strong>
+            <span>{{ block.settings.text }}</span>
+          </span>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</div>
+
+{% schema %}
+{
+  "name": "Cart reassurance",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Before you check out" }
+  ],
+  "blocks": [
+    {
+      "type": "point",
+      "name": "Reassurance point",
+      "settings": [
+        { "type": "select", "id": "icon", "label": "Icon", "default": "shield", "options": [
+          { "value": "shield", "label": "Shield" },
+          { "value": "truck", "label": "Truck" },
+          { "value": "heart", "label": "Heart" },
+          { "value": "check", "label": "Check" },
+          { "value": "grip", "label": "Grip" }
+        ]},
+        { "type": "text", "id": "title", "label": "Title", "default": "30-day guarantee" },
+        { "type": "textarea", "id": "text", "label": "Text", "default": "Full refund if it isn't right." }
+      ]
+    },
+    {
+      "type": "photo",
+      "name": "Customer photo",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "caption", "label": "Caption", "default": "" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Cart reassurance",
+      "blocks": [
+        { "type": "point", "settings": { "icon": "shield", "title": "30-day money-back guarantee", "text": "If it doesn't grip or doesn't fit, we refund you in full." } },
+        { "type": "point", "settings": { "icon": "truck", "title": "Free shipping, 10–18 business days", "text": "Shipped direct from our supplier to keep the price down." } },
+        { "type": "point", "settings": { "icon": "heart", "title": "Real people on support", "text": "Email us and a human replies, usually the same day." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

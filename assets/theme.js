@@ -172,6 +172,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // Sticky add-to-cart: show once the main button scrolls out of view
+  var stickyBar = document.querySelector('[data-sticky-atc]');
+  var mainAtc = document.querySelector('[data-main-atc]');
+  if (stickyBar && mainAtc && 'IntersectionObserver' in window) {
+    var atcObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        stickyBar.classList.toggle('is-visible', show);
+        stickyBar.setAttribute('aria-hidden', show ? 'false' : 'true');
+      });
+    }, { threshold: 0 });
+    atcObserver.observe(mainAtc);
+  }
+
+  // Header gains a shadow once the page scrolls
+  var header = document.querySelector('.site-header');
+  if (header) {
+    var onScroll = function () {
+      header.classList.toggle('is-stuck', window.scrollY > 8);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
   // Ripple feedback on tappable controls
   var rippleTargets = '.icon-btn, .btn, .copy-btn, .product-thumb, .qty-stepper button, .deal-summary';
   document.querySelectorAll(rippleTargets).forEach(function (el) {

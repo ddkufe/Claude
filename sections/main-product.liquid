@@ -51,7 +51,7 @@
         <span class="pill">{% render 'icon', name: 'shield' %} 30-day guarantee</span>
       </div>
 
-      {% form 'product', product %}
+      {% form 'product', product, id: 'ProductForm' %}
         {% unless product.has_only_default_variant %}
           {% for option in product.options_with_values %}
             <div style="margin-bottom:16px;">
@@ -78,7 +78,7 @@
 
         {% render 'bundle-progress', mode: 'product', unit_price: product.selected_or_first_available_variant.price, initial_qty: 1 %}
 
-        <button type="submit" class="btn btn--primary btn--large btn--full" {% unless product.available %}disabled{% endunless %}>
+        <button type="submit" class="btn btn--primary btn--large btn--full" data-main-atc {% unless product.available %}disabled{% endunless %}>
           {% if product.available %}{{ 'products.product.add_to_cart' | t }} &mdash; {{ product.price | money }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}
         </button>
       {% endform %}
@@ -89,6 +89,29 @@
     </div>
   </div>
 </div>
+
+{%- comment -%}
+  Sticky bar: submits the same product form via the form attribute, so
+  quantity and variant selections carry over.
+{%- endcomment -%}
+{% if product.available %}
+  <div class="sticky-atc" data-sticky-atc aria-hidden="true">
+    <div class="sticky-atc-inner">
+      <div class="sticky-atc-info">
+        {% if product.featured_image %}
+          <img src="{{ product.featured_image | image_url: width: 120 }}" alt="" width="48" height="48">
+        {% endif %}
+        <div class="sticky-atc-text">
+          <strong>{{ product.title | truncate: 34 }}</strong>
+          <span>{{ product.price | money }}</span>
+        </div>
+      </div>
+      <button type="submit" form="ProductForm" class="btn btn--primary">
+        {{ 'products.product.add_to_cart' | t }}
+      </button>
+    </div>
+  </div>
+{% endif %}
 
 {% schema %}
 {

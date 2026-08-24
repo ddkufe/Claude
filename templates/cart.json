@@ -1,6 +1,16 @@
 {
   "sections": {
-    "main": { "type": "main-cart-items" }
+    "main": { "type": "main-cart-items" },
+    "reassurance": {
+      "type": "cart-reassurance",
+      "settings": { "heading": "Before you check out" },
+      "blocks": {
+        "point-1": { "type": "point", "settings": { "icon": "shield", "title": "30-day money-back guarantee", "text": "If it doesn't grip or doesn't fit, we refund you in full." } },
+        "point-2": { "type": "point", "settings": { "icon": "truck", "title": "Free shipping, 10–18 business days", "text": "Shipped direct from our supplier to keep the price down." } },
+        "point-3": { "type": "point", "settings": { "icon": "heart", "title": "Real people on support", "text": "Email us and a human replies, usually the same day." } }
+      },
+      "block_order": ["point-1", "point-2", "point-3"]
+    }
   },
-  "order": ["main"]
+  "order": ["main", "reassurance"]
 }
