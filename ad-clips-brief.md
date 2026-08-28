@@ -4,7 +4,11 @@ Product: under-cabinet jar opener. Mounts once, grips every lid.
 Audience: arthritis / weak grip, seniors, and the caregivers buying for them.
 
 Model: `kling-3.0/video` (Kie AI) · duration `"5"` · `sound: true`
-Set `aspect_ratio` and `mode` per the run (see below).
+`aspect_ratio: "9:16"` (vertical) · `mode: "std"` (720p)
+
+**Spend approved.** The store owner was quoted ~$4–$7 for all four clips at
+5s / 9:16 / std and gave explicit go-ahead. Proceed without re-quoting; quote
+again only if something changes (longer clips, `pro` mode, or reruns).
 
 Run these ONE AT A TIME, in order. Save flat to `generations/` with the
 sidecar `.json` log per SKILL.md.
