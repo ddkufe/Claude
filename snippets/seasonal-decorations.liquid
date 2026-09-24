@@ -1,0 +1,64 @@
+<!-- snippets/seasonal-decorations.liquid
+     Purely decorative, site-wide Halloween/fall accents. Non-interactive
+     (pointer-events: none) so they never sit between a shopper and a tap
+     target, and motion is dropped under prefers-reduced-motion. Toggle
+     off any time from Theme settings > Seasonal (Halloween / Fall). -->
+{% if settings.enable_seasonal_decorations %}
+<div class="seasonal-decor" aria-hidden="true">
+  <svg class="seasonal-ghost seasonal-ghost--a" viewBox="0 0 64 64" width="44" height="44">
+    <path fill="#FFFFFF" stroke="var(--color-text, #33291F)" stroke-width="2" stroke-linejoin="round"
+      d="M32 6c12 0 20 9 20 22v24l-6-6-6 6-8-6-8 6-6-6-6 6V28C12 15 20 6 32 6Z"/>
+    <circle cx="24" cy="27" r="3" fill="var(--color-text, #33291F)"/>
+    <circle cx="40" cy="27" r="3" fill="var(--color-text, #33291F)"/>
+  </svg>
+
+  <svg class="seasonal-ghost seasonal-ghost--b" viewBox="0 0 64 64" width="34" height="34">
+    <path fill="#FFFFFF" stroke="var(--color-text, #33291F)" stroke-width="2" stroke-linejoin="round"
+      d="M32 6c12 0 20 9 20 22v24l-6-6-6 6-8-6-8 6-6-6-6 6V28C12 15 20 6 32 6Z"/>
+    <circle cx="24" cy="27" r="3" fill="var(--color-text, #33291F)"/>
+    <circle cx="40" cy="27" r="3" fill="var(--color-text, #33291F)"/>
+  </svg>
+
+  <svg class="seasonal-pumpkin seasonal-pumpkin--a" viewBox="0 0 64 64" width="38" height="38">
+    <rect x="30" y="6" width="4" height="10" rx="2" fill="#7C9473"/>
+    <ellipse cx="32" cy="38" rx="24" ry="20" fill="var(--color-primary, #E4633A)"/>
+    <path d="M18 38c0-11 3-20 6-20M32 38c0-12 0-22 0-22M46 38c0-11-3-20-6-20" stroke="#C94F2B" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>
+
+  <svg class="seasonal-pumpkin seasonal-pumpkin--b" viewBox="0 0 64 64" width="30" height="30">
+    <rect x="30" y="6" width="4" height="10" rx="2" fill="#7C9473"/>
+    <ellipse cx="32" cy="38" rx="24" ry="20" fill="var(--color-accent, #E8A33D)"/>
+    <path d="M18 38c0-11 3-20 6-20M32 38c0-12 0-22 0-22M46 38c0-11-3-20-6-20" stroke="#C4842A" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<style>
+  .seasonal-decor { position: fixed; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+  .seasonal-decor svg { position: absolute; opacity: 0.55; filter: drop-shadow(0 4px 10px rgba(51,41,31,0.12)); }
+
+  .seasonal-ghost--a   { top: 14%; left: 4%;  animation: seasonal-float 6s ease-in-out infinite; }
+  .seasonal-ghost--b    { top: 62%; right: 5%; animation: seasonal-float 7.5s ease-in-out infinite 0.6s; }
+  .seasonal-pumpkin--a { bottom: 8%; left: 7%; animation: seasonal-sway 5.5s ease-in-out infinite; }
+  .seasonal-pumpkin--b { top: 8%; right: 9%;  animation: seasonal-sway 6.5s ease-in-out infinite 0.8s; }
+
+  @keyframes seasonal-float {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50%      { transform: translateY(-14px) rotate(2deg); }
+  }
+  @keyframes seasonal-sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50%      { transform: rotate(4deg); }
+  }
+
+  /* Keep decorations out of the way on small screens - this theme's
+     audience skews toward users who need the extra clarity. */
+  @media (max-width: 640px) {
+    .seasonal-ghost--b, .seasonal-pumpkin--b { display: none; }
+    .seasonal-decor svg { opacity: 0.4; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .seasonal-decor svg { animation: none !important; }
+  }
+</style>
+{% endif %}

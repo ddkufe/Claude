@@ -1,0 +1,117 @@
+<!-- snippets/seasonal-popup.liquid
+     Small, dismissible seasonal promo card - not a full-screen modal, so
+     it never blocks the page. Large tap targets throughout (this theme's
+     audience includes elderly / limited-mobility users). Shows once per
+     browser session. Toggle off from Theme settings > Seasonal. -->
+{% if settings.enable_seasonal_popup %}
+<div id="SeasonalPopup" class="seasonal-popup" role="dialog" aria-label="Seasonal offer" hidden>
+  <button type="button" class="seasonal-popup__close" data-seasonal-popup-close aria-label="Close offer">&times;</button>
+  <div class="seasonal-popup__icon" aria-hidden="true">🎃</div>
+  <div class="seasonal-popup__body">
+    <p class="seasonal-popup__title">{{ settings.seasonal_popup_message | default: 'Soup season is here' }}</p>
+    <p class="seasonal-popup__detail">{{ settings.seasonal_popup_detail | default: '15% off through Nov 30' }}</p>
+    {% if settings.seasonal_popup_code != blank %}
+      <p class="seasonal-popup__code">{{ settings.seasonal_popup_code }}</p>
+    {% endif %}
+  </div>
+  <button type="button" class="btn btn--primary seasonal-popup__dismiss" data-seasonal-popup-close>Got it</button>
+</div>
+
+<style>
+  .seasonal-popup {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 60;
+    max-width: 320px;
+    width: calc(100% - 40px);
+    background: var(--color-surface, #FFFFFF);
+    border: 2px solid var(--color-border, #EAE0CF);
+    border-radius: var(--radius-lg, 28px);
+    box-shadow: var(--shadow-lift, 0 16px 40px rgba(51,41,31,0.14));
+    padding: 20px 20px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    transform: translateY(24px);
+    opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+  }
+  .seasonal-popup.is-visible { transform: translateY(0); opacity: 1; }
+  .seasonal-popup[hidden] { display: none; }
+
+  .seasonal-popup__close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: var(--tap-min, 56px);
+    height: var(--tap-min, 56px);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted, #6B6153);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius-pill, 999px);
+  }
+  .seasonal-popup__close:hover, .seasonal-popup__close:focus-visible { background: var(--color-bg, #FDF8F0); }
+
+  .seasonal-popup__icon { font-size: 34px; margin-top: 6px; }
+  .seasonal-popup__title { font-family: var(--font-heading); font-weight: 600; font-size: 18px; margin: 0; color: var(--color-text, #33291F); }
+  .seasonal-popup__detail { margin: 0; font-size: 15px; color: var(--color-text-muted, #6B6153); }
+  .seasonal-popup__code {
+    margin: 4px 0 0;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-size: 17px;
+    color: var(--color-primary, #E4633A);
+    background: var(--color-bg, #FDF8F0);
+    border: 1px dashed var(--color-primary, #E4633A);
+    border-radius: var(--radius-sm, 12px);
+    padding: 6px 14px;
+  }
+  .seasonal-popup__dismiss {
+    margin-top: 10px;
+    width: 100%;
+    min-height: var(--tap-min, 56px);
+  }
+
+  @media (max-width: 480px) {
+    .seasonal-popup { left: 20px; right: 20px; width: auto; max-width: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .seasonal-popup { transition: none; }
+  }
+</style>
+
+<script>
+  (function () {
+    var POPUP_KEY = 'seasonalPopupDismissed';
+    var popup = document.getElementById('SeasonalPopup');
+    if (!popup) return;
+    if (sessionStorage.getItem(POPUP_KEY) === '1') return;
+
+    function closePopup() {
+      popup.classList.remove('is-visible');
+      sessionStorage.setItem(POPUP_KEY, '1');
+      window.setTimeout(function () { popup.hidden = true; }, 350);
+    }
+
+    popup.querySelectorAll('[data-seasonal-popup-close]').forEach(function (btn) {
+      btn.addEventListener('click', closePopup);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && popup.classList.contains('is-visible')) closePopup();
+    });
+
+    window.setTimeout(function () {
+      popup.hidden = false;
+      requestAnimationFrame(function () { popup.classList.add('is-visible'); });
+    }, 4000);
+  })();
+</script>
+{% endif %}

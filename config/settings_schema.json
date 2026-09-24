@@ -4,8 +4,8 @@
     "theme_name": "EasyGrip Kitchen",
     "theme_version": "1.0.0",
     "theme_author": "EasyGrip Kitchen Co.",
-    "theme_documentation_url": "",
-    "theme_support_url": ""
+    "theme_documentation_url": "https://xhpgzd-m0.myshopify.com",
+    "theme_support_email": "denzendawk@gmail.com"
   },
   {
     "name": "Colors",
@@ -28,6 +28,18 @@
     "settings": [
       { "type": "text", "id": "social_instagram", "label": "Instagram URL" },
       { "type": "text", "id": "social_facebook", "label": "Facebook URL" }
+    ]
+  },
+  {
+    "name": "Seasonal (Halloween / Fall)",
+    "settings": [
+      { "type": "header", "content": "Decorations" },
+      { "type": "checkbox", "id": "enable_seasonal_decorations", "label": "Show floating ghosts & pumpkin garland", "default": true, "info": "Purely decorative, site-wide. Turn off after the season without touching code." },
+      { "type": "header", "content": "Promo pop-up" },
+      { "type": "checkbox", "id": "enable_seasonal_popup", "label": "Show seasonal promo pop-up", "default": true },
+      { "type": "text", "id": "seasonal_popup_message", "label": "Pop-up message", "default": "Soup season is here" },
+      { "type": "text", "id": "seasonal_popup_code", "label": "Discount code", "default": "FALLSTEW15" },
+      { "type": "text", "id": "seasonal_popup_detail", "label": "Detail line", "default": "15% off through Nov 30" }
     ]
   }
 ]
