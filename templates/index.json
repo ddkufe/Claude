@@ -24,6 +24,13 @@
       },
       "block_order": ["vp-1", "vp-2", "vp-3", "vp-4"]
     },
+    "seasonal_picks": {
+      "type": "seasonal-picks",
+      "settings": {
+        "heading": "Fall & Halloween Picks",
+        "subheading": "Grabbed straight from the catalog - everything below is actually tagged for the season."
+      }
+    },
     "deals": {
       "type": "deals",
       "settings": {
@@ -107,6 +114,7 @@
   "order": [
     "hero",
     "value_props",
+    "seasonal_picks",
     "deals",
     "how_it_works",
     "featured_product",

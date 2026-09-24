@@ -292,16 +292,178 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-// Bump the cart icon whenever Shopify's cart count updates via a product form submit
-document.addEventListener('submit', function (e) {
-  if (e.target.matches('form[action*="/cart/add"]')) {
-    var count = document.querySelector('.cart-count');
-    if (count) {
-      setTimeout(function () {
-        count.classList.remove('is-bumping');
-        void count.offsetWidth;
-        count.classList.add('is-bumping');
-      }, 50);
+// ---------- AJAX add-to-cart + slide-out cart drawer ----------
+// Hyper-style pattern: add to cart without a full page reload, and open
+// a slide-out panel showing the real, current cart state (fetched fresh
+// from Shopify's /cart.js each time, never assembled from stale data).
+
+function bumpCartCount() {
+  var count = document.querySelector('.cart-count');
+  if (!count) return;
+  count.classList.remove('is-bumping');
+  void count.offsetWidth;
+  count.classList.add('is-bumping');
+}
+
+function renderCartDrawer(cart) {
+  var drawer = document.getElementById('CartDrawer');
+  if (!drawer) return;
+
+  var itemsEl = drawer.querySelector('[data-cart-drawer-items]');
+  var footerEl = drawer.querySelector('[data-cart-drawer-footer]');
+  var subtotalEl = drawer.querySelector('[data-cart-drawer-subtotal]');
+  var countEl = document.getElementById('CartCount');
+
+  if (countEl) {
+    countEl.textContent = cart.item_count;
+    countEl.hidden = cart.item_count === 0;
+  }
+
+  if (!cart.items.length) {
+    itemsEl.innerHTML = '<p class="cart-drawer__empty">Your cart is empty.</p>';
+    if (footerEl) footerEl.hidden = true;
+  } else {
+    itemsEl.innerHTML = cart.items.map(function (item) {
+      var img = item.image ? '<img src="' + item.image.replace(/(\.[a-z]+)(\?|$)/i, '_100x$2') + '" alt="" loading="lazy">' : '';
+      var variant = item.variant_title ? '<p class="cart-drawer__line-variant">' + item.variant_title + '</p>' : '';
+      return (
+        '<div class="cart-drawer__line" data-drawer-line data-line-key="' + item.key + '">' +
+          img +
+          '<div>' +
+            '<p class="cart-drawer__line-title">' + item.product_title + '</p>' +
+            variant +
+            '<div class="cart-drawer__line-controls">' +
+              '<span class="cart-drawer__line-qty">' +
+                '<button type="button" data-drawer-qty-minus aria-label="Decrease quantity">&minus;</button>' +
+                '<span>' + item.quantity + '</span>' +
+                '<button type="button" data-drawer-qty-plus aria-label="Increase quantity">&plus;</button>' +
+              '</span>' +
+              '<button type="button" class="cart-drawer__line-remove" data-drawer-remove>Remove</button>' +
+            '</div>' +
+          '</div>' +
+          '<span class="cart-drawer__line-price">' + formatMoney(item.final_line_price) + '</span>' +
+        '</div>'
+      );
+    }).join('');
+    if (footerEl) footerEl.hidden = false;
+    if (subtotalEl) subtotalEl.textContent = formatMoney(cart.total_price);
+  }
+
+  var shipping = drawer.querySelector('[data-cart-shipping]');
+  if (shipping) {
+    var threshold = parseFloat(shipping.dataset.threshold) * 100;
+    var fill = shipping.querySelector('[data-shipping-fill]');
+    var text = shipping.querySelector('[data-shipping-text]');
+    var pct = Math.min(100, (cart.total_price / threshold) * 100);
+    if (fill) fill.style.width = pct + '%';
+    if (text) {
+      text.textContent = cart.total_price >= threshold
+        ? "You've unlocked free shipping!"
+        : 'Add ' + formatMoney(threshold - cart.total_price) + ' more for free shipping';
     }
+  }
+}
+
+function fetchAndRenderCart() {
+  return fetch('/cart.js', { headers: { Accept: 'application/json' } })
+    .then(function (res) { return res.json(); })
+    .then(function (cart) { renderCartDrawer(cart); return cart; });
+}
+
+function openCartDrawer() {
+  var drawer = document.getElementById('CartDrawer');
+  if (!drawer) { window.location.href = '/cart'; return; }
+  drawer.classList.add('is-open');
+  drawer.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCartDrawer() {
+  var drawer = document.getElementById('CartDrawer');
+  if (!drawer) return;
+  drawer.classList.remove('is-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  var drawer = document.getElementById('CartDrawer');
+
+  // Header cart icon opens the drawer instead of navigating (falls back
+  // to a normal link to /cart if the drawer isn't on the page).
+  document.querySelectorAll('[data-cart-drawer-open]').forEach(function (link) {
+    if (!drawer) return;
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      fetchAndRenderCart().then(openCartDrawer);
+    });
+  });
+
+  if (drawer) {
+    drawer.querySelectorAll('[data-cart-drawer-close]').forEach(function (btn) {
+      btn.addEventListener('click', closeCartDrawer);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeCartDrawer();
+    });
+
+    // Quantity +/- and remove inside the drawer
+    drawer.addEventListener('click', function (e) {
+      var line = e.target.closest('[data-drawer-line]');
+      if (!line) return;
+      var key = line.dataset.lineKey;
+      var qtySpan = line.querySelector('.cart-drawer__line-qty span');
+      var current = parseInt(qtySpan.textContent, 10) || 0;
+      var next = null;
+
+      if (e.target.closest('[data-drawer-qty-plus]')) next = current + 1;
+      else if (e.target.closest('[data-drawer-qty-minus]')) next = Math.max(0, current - 1);
+      else if (e.target.closest('[data-drawer-remove]')) next = 0;
+      else return;
+
+      fetch('/cart/change.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ id: key, quantity: next })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (cart) { renderCartDrawer(cart); });
+    });
+  }
+
+  // Intercept product-form add-to-cart submissions for an AJAX add, then
+  // open the drawer instead of reloading to the cart page.
+  document.addEventListener('submit', function (e) {
+    if (!e.target.matches('form[action*="/cart/add"]')) return;
+    if (!drawer) return; // no drawer on the page - let the form submit normally
+
+    e.preventDefault();
+    var form = e.target;
+    var formData = new FormData(form);
+    var submitBtn = form.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    fetch('/cart/add.js', { method: 'POST', headers: { Accept: 'application/json' }, body: formData })
+      .then(function (res) { return res.json(); })
+      .then(function () {
+        bumpCartCount();
+        return fetchAndRenderCart();
+      })
+      .then(openCartDrawer)
+      .catch(function () { form.submit(); }) // network hiccup - fall back to a normal submit
+      .finally(function () { if (submitBtn) submitBtn.disabled = false; });
+  });
+
+  // ---------- Sticky add-to-cart bar (product pages) ----------
+  var stickyBar = document.querySelector('[data-sticky-atc]');
+  var sentinel = document.querySelector('[data-atc-sentinel]');
+  if (stickyBar && sentinel && 'IntersectionObserver' in window) {
+    var atcObserver = new IntersectionObserver(function (entries) {
+      var entry = entries[0];
+      var scrolledPast = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+      stickyBar.classList.toggle('is-visible', scrolledPast);
+      stickyBar.setAttribute('aria-hidden', String(!scrolledPast));
+    }, { threshold: 0 });
+    atcObserver.observe(sentinel);
   }
 });

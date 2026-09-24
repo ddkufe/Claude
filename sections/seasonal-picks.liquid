@@ -1,0 +1,50 @@
+<!-- sections/seasonal-picks.liquid
+     "Themed room" merchandising: group real fall/Halloween-tagged
+     products into one showcase, the way FoxEcom's own seasonal guide
+     recommends for home-goods stores. Only ever pulls from actual
+     product tags in the catalog - if nothing's tagged yet, or the
+     Seasonal setting is off, the whole section quietly doesn't render
+     rather than showing an empty or fabricated shelf. -->
+{% if settings.enable_seasonal_decorations %}
+  {% assign seasonal_count = 0 %}
+  {% for product in collections.all.products %}
+    {% if product.tags contains 'fall' or product.tags contains 'halloween' %}
+      {% assign seasonal_count = seasonal_count | plus: 1 %}
+    {% endif %}
+  {% endfor %}
+
+  {% if seasonal_count > 0 %}
+    <section class="lifestyle">
+      <div class="container">
+        <div class="section-heading reveal">
+          <span class="hero-eyebrow">&#127875; Curated for the season</span>
+          <h2>{{ section.settings.heading | default: 'Fall & Halloween Picks' }}</h2>
+          {% if section.settings.subheading != blank %}
+            <p style="color:var(--color-text-muted);">{{ section.settings.subheading }}</p>
+          {% endif %}
+        </div>
+        <div class="product-grid">
+          {% assign shown = 0 %}
+          {% for product in collections.all.products %}
+            {% if shown >= 8 %}{% break %}{% endif %}
+            {% if product.tags contains 'fall' or product.tags contains 'halloween' %}
+              {% render 'product-card', product: product %}
+              {% assign shown = shown | plus: 1 %}
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+{% endif %}
+
+{% schema %}
+{
+  "name": "Seasonal picks",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Fall & Halloween Picks" },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "Grabbed straight from the catalog - everything below is actually tagged for the season." }
+  ],
+  "presets": [{ "name": "Seasonal picks" }]
+}
+{% endschema %}

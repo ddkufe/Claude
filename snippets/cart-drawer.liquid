@@ -1,0 +1,39 @@
+<!-- snippets/cart-drawer.liquid
+     Slide-out AJAX cart, in the style of higher-end themes like Hyper:
+     add to cart without leaving the page, adjust quantity or remove a
+     line without a full reload. Renders empty here - theme.js fetches
+     /cart.js and fills it in, so it's always showing the real cart
+     state rather than anything baked into the page HTML. -->
+{% if settings.enable_cart_drawer %}
+<div id="CartDrawer" class="cart-drawer" aria-hidden="true">
+  <div class="cart-drawer__backdrop" data-cart-drawer-close></div>
+  <div class="cart-drawer__panel" role="dialog" aria-label="Your cart" aria-modal="true">
+    <div class="cart-drawer__header">
+      <h2>Your cart</h2>
+      <button type="button" class="icon-btn" data-cart-drawer-close aria-label="Close cart">
+        {% render 'icon', name: 'close' %}
+      </button>
+    </div>
+
+    {% if settings.free_shipping_threshold > 0 %}
+      <div class="cart-drawer__shipping" data-cart-shipping data-threshold="{{ settings.free_shipping_threshold }}">
+        <p data-shipping-text></p>
+        <div class="cart-drawer__shipping-track"><div class="cart-drawer__shipping-fill" data-shipping-fill></div></div>
+      </div>
+    {% endif %}
+
+    <div class="cart-drawer__items" data-cart-drawer-items>
+      <p class="cart-drawer__empty" data-cart-drawer-empty>Your cart is empty.</p>
+    </div>
+
+    <div class="cart-drawer__footer" data-cart-drawer-footer hidden>
+      <div class="cart-drawer__subtotal">
+        <span>Subtotal</span>
+        <span data-cart-drawer-subtotal>$0.00</span>
+      </div>
+      <a href="/checkout" class="btn btn--primary btn--large btn--full">Checkout</a>
+      <a href="{{ routes.cart_url }}" class="btn btn--outline btn--full" style="margin-top:10px;">View full cart</a>
+    </div>
+  </div>
+</div>
+{% endif %}

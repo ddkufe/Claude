@@ -51,7 +51,7 @@
         <span class="pill">{% render 'icon', name: 'shield' %} 30-day guarantee</span>
       </div>
 
-      {% form 'product', product %}
+      {% form 'product', product, id: 'MainProductForm' %}
         {% unless product.has_only_default_variant %}
           {% for option in product.options_with_values %}
             <div style="margin-bottom:16px;">
@@ -78,7 +78,7 @@
 
         {% render 'bundle-progress', mode: 'product', unit_price: product.selected_or_first_available_variant.price, initial_qty: 1 %}
 
-        <button type="submit" class="btn btn--primary btn--large btn--full" {% unless product.available %}disabled{% endunless %}>
+        <button type="submit" class="btn btn--primary btn--large btn--full" data-atc-sentinel {% unless product.available %}disabled{% endunless %}>
           {% if product.available %}{{ 'products.product.add_to_cart' | t }} &mdash; {{ product.price | money }}{% else %}{{ 'products.product.sold_out' | t }}{% endif %}
         </button>
       {% endform %}
@@ -89,6 +89,8 @@
     </div>
   </div>
 </div>
+
+{% render 'sticky-add-to-cart', product: product %}
 
 {% schema %}
 {

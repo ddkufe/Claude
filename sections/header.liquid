@@ -20,7 +20,7 @@
 
     <div class="header-actions">
       <a href="{{ routes.search_url }}" class="icon-btn" aria-label="Search">{% render 'icon', name: 'search' %}</a>
-      <a href="{{ routes.cart_url }}" class="icon-btn" aria-label="Cart, {{ cart.item_count }} items" id="CartIconLink">
+      <a href="{{ routes.cart_url }}" class="icon-btn" aria-label="Cart, {{ cart.item_count }} items" id="CartIconLink" data-cart-drawer-open>
         {% render 'icon', name: 'cart' %}
         <span class="cart-count" id="CartCount" {% if cart.item_count == 0 %}hidden{% endif %}>{{ cart.item_count }}</span>
       </a>

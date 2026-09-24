@@ -1,0 +1,21 @@
+<!-- snippets/sticky-add-to-cart.liquid
+     Usage: {% render 'sticky-add-to-cart', product: product %}
+     Appears once the shopper scrolls past the main buy box - another
+     Hyper-style pattern, keeps price + Add to cart reachable without
+     hunting back up the page. Submits the SAME form as the main add-to-
+     cart button (via the form="" attribute) so variant/quantity state
+     never gets out of sync between the two. -->
+<div class="sticky-atc" data-sticky-atc aria-hidden="true">
+  <div class="sticky-atc__inner container">
+    {% if product.featured_image %}
+      <img src="{{ product.featured_image | image_url: width: 100 }}" alt="" width="44" height="44" class="sticky-atc__thumb">
+    {% endif %}
+    <div class="sticky-atc__info">
+      <span class="sticky-atc__title">{{ product.title }}</span>
+      <span class="sticky-atc__price">{{ product.price | money }}</span>
+    </div>
+    <button type="submit" form="MainProductForm" class="btn btn--primary sticky-atc__btn" {% unless product.available %}disabled{% endunless %}>
+      {% if product.available %}Add to cart{% else %}Sold out{% endif %}
+    </button>
+  </div>
+</div>

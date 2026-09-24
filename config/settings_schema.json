@@ -31,6 +31,13 @@
     ]
   },
   {
+    "name": "Cart drawer",
+    "settings": [
+      { "type": "checkbox", "id": "enable_cart_drawer", "label": "Use slide-out cart drawer", "default": true, "info": "Add to cart without leaving the page - opens a slide-out panel instead of reloading to the cart page." },
+      { "type": "number", "id": "free_shipping_threshold", "label": "Free shipping threshold ($)", "info": "Real order minimum for free shipping. Leave blank to hide the progress bar entirely - it only ever shows a real threshold, never an invented one." }
+    ]
+  },
+  {
     "name": "Seasonal (Halloween / Fall)",
     "settings": [
       { "type": "header", "content": "Color palette" },
