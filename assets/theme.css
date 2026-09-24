@@ -961,3 +961,253 @@ summary:focus-visible {
   font-size: 0.95rem;
   margin-top: 4px;
 }
+
+/* =====================================================================
+   Halloween / Fall seasonal palette
+   Toggle: Theme settings > Seasonal (Halloween / Fall) > Color palette.
+   Everything below is scoped to body.halloween-theme so switching the
+   setting off instantly reverts to the year-round cream palette above
+   with zero code changes.
+   ===================================================================== */
+
+.halloween-theme {
+  --color-primary: #F2652A;
+  --color-primary-dark: #C94A16;
+  --color-primary-rgb: 242, 101, 42;
+  --color-secondary: #7C4FD1;
+  --color-secondary-dark: #5F37B0;
+  --color-secondary-rgb: 124, 79, 209;
+  --color-accent: #E8A33D;
+  --color-bg: #160F1D;
+  --color-surface: rgba(38, 27, 54, 0.62);
+  --color-text: #F6EFEA;
+  --color-text-muted: #C7B8DA;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-success: #4ADE80;
+  --color-danger: #FF5470;
+
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 18px 48px rgba(0, 0, 0, 0.5);
+  --shadow-glow-orange: 0 0 42px rgba(242, 101, 42, 0.35);
+  --shadow-glow-purple: 0 0 42px rgba(124, 79, 209, 0.32);
+
+  background: var(--color-bg);
+  position: relative;
+}
+
+/* --- Fix components that hard-coded a color instead of a var, or that
+       reused --color-text as a background (worked when text was dark
+       brown; breaks now that text is a light off-white). --- */
+
+.halloween-theme .skip-link { background: var(--color-primary-dark); color: #fff; }
+
+.halloween-theme .site-header {
+  background: rgba(22, 15, 29, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: var(--color-border);
+}
+
+.halloween-theme .zoom-hint { background: rgba(22, 15, 29, 0.85); color: var(--color-text); }
+
+.halloween-theme .hero-badge,
+.halloween-theme .deal-badge { color: #2B1206; }
+
+.halloween-theme .site-footer { background: #0E0916; }
+
+.halloween-theme .mobile-nav-panel { background: #1B1224; }
+
+/* --- Festive gradient announcement bar --- */
+.halloween-theme .announcement-bar {
+  background: linear-gradient(90deg, #C94A16, #7C4FD1);
+  color: #fff;
+}
+
+/* --- Glass cards: every card-like surface gets a frosted, softly-glowing
+       treatment instead of a flat fill. --- */
+.halloween-theme .value-card,
+.halloween-theme .product-card,
+.halloween-theme .testimonial-card,
+.halloween-theme .deal-item,
+.halloween-theme .bundle-progress,
+.halloween-theme .cart-summary,
+.halloween-theme .lifestyle-card,
+.halloween-theme .qty-stepper,
+.halloween-theme .product-gallery-main,
+.halloween-theme .hero-media {
+  background: var(--color-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+}
+.halloween-theme .testimonial-card { background: rgba(255, 255, 255, 0.04); }
+.halloween-theme .testimonials { background: transparent; }
+.halloween-theme .value-card:hover,
+.halloween-theme .product-card:hover,
+.halloween-theme .lifestyle-card:hover {
+  box-shadow: var(--shadow-glow-orange);
+  border-color: rgba(242, 101, 42, 0.4);
+}
+
+/* --- Buttons get a gradient + glow instead of a flat fill --- */
+.halloween-theme .btn--primary {
+  background: linear-gradient(135deg, #F2652A, #C94A16);
+  box-shadow: var(--shadow-glow-orange);
+}
+.halloween-theme .btn--primary:hover {
+  background: linear-gradient(135deg, #FF8A4A, #E4530C);
+  box-shadow: 0 0 56px rgba(242, 101, 42, 0.5);
+}
+.halloween-theme .btn--secondary { background: linear-gradient(135deg, #9B6BEA, #7C4FD1); }
+.halloween-theme .btn--secondary:hover { background: linear-gradient(135deg, #A87EEA, #5F37B0); }
+.halloween-theme .btn--outline { border-color: var(--color-border); color: var(--color-text); }
+.halloween-theme .btn--outline:hover { background: rgba(255, 255, 255, 0.08); color: var(--color-text); }
+
+/* --- Hero: gradient-text headline for a more premium, current look --- */
+.halloween-theme .hero h1,
+.halloween-theme .steps-header h2,
+.halloween-theme .section-heading h2 {
+  background: linear-gradient(100deg, #FFB27A 0%, #F2652A 35%, #C97DF0 75%, #9B6BEA 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--color-text);
+}
+
+.halloween-theme .step-number { background: linear-gradient(135deg, #9B6BEA, #7C4FD1); }
+
+/* --- Product / cart price accents pop more against dark surfaces --- */
+.halloween-theme .product-price,
+.halloween-theme .product-card-price,
+.halloween-theme .bundle-discounted { color: #FF9E5C; }
+
+/* =====================================================================
+   Gradient-mesh background + drifting embers
+   Fixed, full-viewport, z-index -1 - purely atmospheric.
+   ===================================================================== */
+
+.seasonal-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.seasonal-mesh__blob {
+  position: absolute;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.4;
+  will-change: transform;
+}
+.seasonal-mesh__blob--orange {
+  top: -15%;
+  left: -10%;
+  background: radial-gradient(circle, #F2652A, transparent 70%);
+  animation: mesh-drift-a 26s ease-in-out infinite;
+}
+.seasonal-mesh__blob--purple {
+  bottom: -20%;
+  right: -12%;
+  background: radial-gradient(circle, #7C4FD1, transparent 70%);
+  animation: mesh-drift-b 32s ease-in-out infinite;
+}
+.seasonal-mesh__blob--green {
+  top: 40%;
+  right: 20%;
+  width: 32vmax;
+  height: 32vmax;
+  opacity: 0.22;
+  background: radial-gradient(circle, #4ADE80, transparent 70%);
+  animation: mesh-drift-a 22s ease-in-out infinite reverse;
+}
+
+@keyframes mesh-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(6vw, 4vh) scale(1.08); }
+}
+@keyframes mesh-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-5vw, -5vh) scale(1.1); }
+}
+
+.seasonal-embers { position: absolute; inset: 0; }
+.seasonal-ember {
+  position: absolute;
+  left: calc((var(--i) * 7.3%) + 2%);
+  bottom: -5%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #FFB27A;
+  box-shadow: 0 0 8px 2px rgba(242, 101, 42, 0.7);
+  opacity: 0;
+  animation: ember-rise calc(9s + (var(--i) * 0.6s)) ease-in infinite;
+  animation-delay: calc(var(--i) * -0.8s);
+}
+.seasonal-ember:nth-child(3n) { background: #C99CF2; box-shadow: 0 0 8px 2px rgba(124, 79, 209, 0.7); width: 4px; height: 4px; }
+
+@keyframes ember-rise {
+  0%   { opacity: 0; transform: translateY(0) translateX(0); }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.5; }
+  100% { opacity: 0; transform: translateY(-100vh) translateX(20px); }
+}
+
+/* =====================================================================
+   Ambient jack-o'-lanterns + wisp ghost (seasonal-decorations.liquid)
+   ===================================================================== */
+
+.seasonal-decor { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.seasonal-decor svg { position: absolute; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45)); }
+
+.seasonal-pumpkin--a { bottom: 6%; left: 5%; animation: seasonal-sway 6s ease-in-out infinite; }
+.seasonal-pumpkin--b { top: 12%; right: 8%; animation: seasonal-sway 7s ease-in-out infinite 0.5s; }
+.seasonal-ghost--a   { top: 55%; right: 4%; animation: seasonal-float 8s ease-in-out infinite; }
+
+.seasonal-glow {
+  position: absolute;
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.5;
+}
+.seasonal-glow--a { bottom: 4%; left: 3%; background: #F2652A; }
+.seasonal-glow--b { top: 10%; right: 6%; background: #7C4FD1; }
+
+@keyframes seasonal-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-16px) rotate(2deg); }
+}
+@keyframes seasonal-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+
+@media (max-width: 640px) {
+  .seasonal-pumpkin--b, .seasonal-ghost--a, .seasonal-glow--b { display: none; }
+  .seasonal-mesh__blob { width: 80vmax; height: 80vmax; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seasonal-decor svg,
+  .seasonal-mesh__blob,
+  .seasonal-ember { animation: none !important; }
+  .seasonal-ember { opacity: 0.5; bottom: 20%; }
+}
+
+/* --- Seasonal promo pop-up: glass card with a soft gradient edge --- */
+.halloween-theme .seasonal-popup {
+  background: rgba(28, 19, 40, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: var(--shadow-lift), var(--shadow-glow-purple);
+}
+.halloween-theme .seasonal-popup__code {
+  background: rgba(242, 101, 42, 0.12);
+  border-color: var(--color-primary);
+  color: #FF9E5C;
+}

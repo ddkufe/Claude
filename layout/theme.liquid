@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#FDF8F0">
+  <meta name="theme-color" content="{% if settings.enable_halloween_palette %}#160F1D{% else %}#FDF8F0{% endif %}">
   <title>
     {{ page_title }}{% if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif %}{% if current_page != 1 %} &ndash; Page {{ current_page }}{% endif %}{% unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless %}
   </title>
@@ -21,8 +21,10 @@
 
   {{ 'theme.css' | asset_url | stylesheet_tag }}
 </head>
-<body>
+<body class="{% if settings.enable_halloween_palette %}halloween-theme{% endif %}">
   <a class="skip-link" href="#MainContent">Skip to content</a>
+
+  {% if settings.enable_halloween_palette %}{% render 'seasonal-mesh-bg' %}{% endif %}
 
   {% section 'announcement-bar' %}
   {% section 'header' %}
