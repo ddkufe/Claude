@@ -21,6 +21,13 @@
     {% elsif product.available == false %}
       <span class="media-badge media-badge--muted">Sold out</span>
     {% endif %}
+
+    {%- comment -%} Real tag on the product, not a fabricated claim - only shows for products actually tagged this way in the catalog. {%- endcomment -%}
+    {% if settings.enable_seasonal_decorations and product.tags contains 'fall' %}
+      <span class="media-badge media-badge--seasonal">Fall Pick</span>
+    {% elsif settings.enable_seasonal_decorations and product.tags contains 'halloween' %}
+      <span class="media-badge media-badge--seasonal">Halloween</span>
+    {% endif %}
   </div>
   <div class="product-card-body">
     <div class="product-card-title">{{ product.title }}</div>

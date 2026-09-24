@@ -41,7 +41,11 @@
       { "type": "checkbox", "id": "enable_seasonal_popup", "label": "Show seasonal promo pop-up", "default": true },
       { "type": "text", "id": "seasonal_popup_message", "label": "Pop-up message", "default": "Soup season is here" },
       { "type": "text", "id": "seasonal_popup_code", "label": "Discount code", "default": "FALLSTEW15" },
-      { "type": "text", "id": "seasonal_popup_detail", "label": "Detail line", "default": "15% off through Nov 30" }
+      { "type": "text", "id": "seasonal_popup_detail", "label": "Detail line", "default": "15% off through Nov 30" },
+      { "type": "header", "content": "Countdown bar" },
+      { "type": "checkbox", "id": "enable_seasonal_countdown", "label": "Show sale countdown bar", "default": true, "info": "A real countdown to the date below - proven to lift conversion, but only honest when the deadline is real. Update or turn off once the sale ends." },
+      { "type": "text", "id": "seasonal_countdown_label", "label": "Countdown label", "default": "FALLSTEW15 - 15% off ends in" },
+      { "type": "text", "id": "seasonal_countdown_date", "label": "End date (YYYY-MM-DD)", "default": "2026-11-30", "info": "Countdown target, evaluated in the shopper's local timezone at 11:59pm." }
     ]
   }
 ]

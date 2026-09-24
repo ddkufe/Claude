@@ -1,0 +1,59 @@
+<!-- snippets/seasonal-countdown.liquid
+     A real countdown to a real deadline (Theme settings > Seasonal >
+     Countdown bar > End date). Countdown timers to genuine deadlines
+     are one of the best-evidenced conversion levers in ecommerce -
+     but only when the deadline is real, so this reads its date from
+     the same sale details already used elsewhere (the FALLSTEW15 promo
+     pop-up, the deals section). Hidden entirely once the date passes
+     or without JS, rather than show a fake/broken countdown. -->
+{% if settings.enable_seasonal_countdown and settings.seasonal_countdown_date != blank %}
+<div id="SeasonalCountdown" class="seasonal-countdown" data-end-date="{{ settings.seasonal_countdown_date }}" hidden>
+  <span class="seasonal-countdown__icon" aria-hidden="true">&#127875;</span>
+  <span class="seasonal-countdown__label">{{ settings.seasonal_countdown_label | default: 'Sale ends in' }}</span>
+  <span class="seasonal-countdown__clock" aria-hidden="true">
+    <span data-cd-d>00</span>d <span data-cd-h>00</span>h <span data-cd-m>00</span>m <span data-cd-s>00</span>s
+  </span>
+  <span class="visually-hidden" data-cd-sr></span>
+</div>
+
+<script>
+  (function () {
+    var bar = document.getElementById('SeasonalCountdown');
+    if (!bar) return;
+    var end = new Date(bar.dataset.endDate + 'T23:59:59');
+    if (isNaN(end.getTime())) return;
+
+    var dEl = bar.querySelector('[data-cd-d]');
+    var hEl = bar.querySelector('[data-cd-h]');
+    var mEl = bar.querySelector('[data-cd-m]');
+    var sEl = bar.querySelector('[data-cd-s]');
+    var srEl = bar.querySelector('[data-cd-sr]');
+    var announced = false;
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function tick() {
+      var diff = end.getTime() - Date.now();
+      if (diff <= 0) { bar.hidden = true; clearInterval(timer); return; }
+
+      bar.hidden = false;
+      var d = Math.floor(diff / 86400000);
+      var h = Math.floor((diff % 86400000) / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      var s = Math.floor((diff % 60000) / 1000);
+      dEl.textContent = pad(d);
+      hEl.textContent = pad(h);
+      mEl.textContent = pad(m);
+      sEl.textContent = pad(s);
+
+      if (!announced) {
+        srEl.textContent = 'Offer ends ' + end.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }) + '.';
+        announced = true;
+      }
+    }
+
+    tick();
+    var timer = setInterval(tick, 1000);
+  })();
+</script>
+{% endif %}

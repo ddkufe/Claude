@@ -258,6 +258,34 @@ summary:focus-visible {
   padding: 10px 16px;
 }
 
+/* Seasonal countdown bar - real deadline, sits above the announcement bar */
+.seasonal-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  background: var(--color-primary);
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 10px 16px;
+}
+.seasonal-countdown[hidden] { display: none; }
+.seasonal-countdown__icon { font-size: 1rem; }
+.seasonal-countdown__clock {
+  font-family: var(--font-heading);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+}
+@media (max-width: 480px) {
+  .seasonal-countdown { font-size: 0.8rem; padding: 8px 12px; }
+}
+
 /* Hero */
 .hero {
   padding: 64px 0;
@@ -508,6 +536,7 @@ summary:focus-visible {
   box-shadow: var(--shadow-soft);
 }
 .media-badge--muted { background: var(--color-text-muted); }
+.media-badge--seasonal { top: 14px; left: auto; right: 14px; background: var(--color-accent); color: var(--color-text); }
 
 .media-placeholder {
   width: 100%;
