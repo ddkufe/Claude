@@ -991,9 +991,52 @@ summary:focus-visible {
   --shadow-glow-orange: 0 0 42px rgba(242, 101, 42, 0.35);
   --shadow-glow-purple: 0 0 42px rgba(124, 79, 209, 0.32);
 
+  /* Serious/business typography + shape language - deliberately not the
+     year-round friendly brand fonts and full-pill shapes. Structured,
+     tighter, more editorial: this is the storefront for a purchase
+     decision, not a playful landing page. */
+  --font-heading: 'Sora', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 10px;
+
   background: var(--color-bg);
   position: relative;
 }
+
+.halloween-theme h1,
+.halloween-theme h2,
+.halloween-theme h3,
+.halloween-theme h4 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Eyebrow reads as a structured kicker label, not a soft sticker. */
+.halloween-theme .hero-eyebrow {
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Calmer, more confident motion - drop the elastic/bounce overshoots
+   and the sticker-style rotations used in the year-round friendly mode. */
+.halloween-theme .hero-badge,
+.halloween-theme .deal-badge { transform: none; letter-spacing: 0.02em; }
+.halloween-theme .icon-btn:hover svg,
+.halloween-theme .header-logo:hover svg { animation: none; }
+.halloween-theme .step-card:hover .step-number { transform: scale(1.04); }
+.halloween-theme .step-number { transition: transform .25s ease; }
+.halloween-theme .bundle-progress-message .icon-pop { transition: transform .25s ease; }
+.halloween-theme .bundle-progress.is-unlocked .bundle-discounted { animation: none; }
+.halloween-theme .cart-count.is-bumping { animation: none; }
+.halloween-theme .pill:hover,
+.halloween-theme .copy-btn:hover { transform: none; }
 
 /* --- Fix components that hard-coded a color instead of a var, or that
        reused --color-text as a background (worked when text was dark
