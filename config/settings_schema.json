@@ -34,9 +34,9 @@
     "name": "Seasonal (Halloween / Fall)",
     "settings": [
       { "type": "header", "content": "Color palette" },
-      { "type": "checkbox", "id": "enable_halloween_palette", "label": "Use Halloween/fall dark palette", "default": true, "info": "Reskins the whole site: near-black background, pumpkin orange, witch purple, gradient mesh + glass surfaces. Turn off to instantly revert to the year-round cream palette." },
+      { "type": "checkbox", "id": "enable_halloween_palette", "label": "Use Halloween/fall accent colors", "default": true, "info": "Same layout, fonts and shapes as the year-round theme - just swaps the accent colors to pumpkin orange + harvest purple. Turn off to instantly revert to the exact year-round palette." },
       { "type": "header", "content": "Decorations" },
-      { "type": "checkbox", "id": "enable_seasonal_decorations", "label": "Show glowing pumpkins, ghosts & embers", "default": true, "info": "Purely decorative, site-wide. Turn off after the season without touching code." },
+      { "type": "checkbox", "id": "enable_seasonal_decorations", "label": "Show pumpkin & ghost garland", "default": true, "info": "Purely decorative, site-wide. Turn off after the season without touching code." },
       { "type": "header", "content": "Promo pop-up" },
       { "type": "checkbox", "id": "enable_seasonal_popup", "label": "Show seasonal promo pop-up", "default": true },
       { "type": "text", "id": "seasonal_popup_message", "label": "Pop-up message", "default": "Soup season is here" },

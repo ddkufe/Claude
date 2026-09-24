@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="{% if settings.enable_halloween_palette %}#160F1D{% else %}#FDF8F0{% endif %}">
+  <meta name="theme-color" content="{% if settings.enable_halloween_palette %}#FBF2E3{% else %}#FDF8F0{% endif %}">
   <title>
     {{ page_title }}{% if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif %}{% if current_page != 1 %} &ndash; Page {{ current_page }}{% endif %}{% unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless %}
   </title>
@@ -15,7 +15,7 @@
   <link rel="canonical" href="{{ canonical_url }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,600&family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
 
   {{ content_for_header }}
 
@@ -23,8 +23,6 @@
 </head>
 <body class="{% if settings.enable_halloween_palette %}halloween-theme{% endif %}">
   <a class="skip-link" href="#MainContent">Skip to content</a>
-
-  {% if settings.enable_halloween_palette %}{% render 'seasonal-mesh-bg' %}{% endif %}
 
   {% section 'announcement-bar' %}
   {% section 'header' %}
