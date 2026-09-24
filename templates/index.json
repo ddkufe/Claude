@@ -59,6 +59,22 @@
       },
       "block_order": ["deal-1", "deal-2"]
     },
+    "compare": {
+      "type": "compare",
+      "settings": {
+        "eyebrow": "The difference",
+        "heading": "Every other fix asks your hands to do the work.",
+        "subheading": "Rubber pads, hot water, rubber gloves, asking for help — they all still need grip strength. This doesn't.",
+        "col_them": "The usual workarounds",
+        "col_us": "Ezgrip"
+      },
+      "blocks": {
+        "row-1": { "type": "row", "settings": { "label": "Needs grip strength", "them": "Yes", "us": "No" } },
+        "row-2": { "type": "row", "settings": { "label": "One-handed use", "them": "Rarely", "us": "Always" } },
+        "row-3": { "type": "row", "settings": { "label": "Works while mounted", "them": "N/A", "us": "Yes, every time" } }
+      },
+      "block_order": ["row-1", "row-2", "row-3"]
+    },
     "how_it_works": {
       "type": "how-it-works",
       "settings": {
@@ -71,6 +87,37 @@
         "step-3": { "type": "step", "settings": { "heading": "Twist with your palm", "text": "Turn the jar, not your wrist. The lid loosens instantly, every time." } }
       },
       "block_order": ["step-1", "step-2", "step-3"]
+    },
+    "use_it_carousel": {
+      "type": "use-it-carousel",
+      "settings": {
+        "eyebrow": "How you'll use it",
+        "heading": "One mount. Every jar after that.",
+        "subheading": "From install to twist-off, here's the whole routine."
+      },
+      "blocks": {
+        "card-1": { "type": "card", "settings": { "heading": "Mount it once", "text": "Screws or adhesive, under any cabinet or shelf — about 2 minutes." } },
+        "card-2": { "type": "card", "settings": { "heading": "Push the jar up", "text": "The teeth lock onto the lid so your hand doesn't have to." } },
+        "card-3": { "type": "card", "settings": { "heading": "Twist it open", "text": "Turn the jar, not your wrist — the lid gives instantly." } },
+        "card-4": { "type": "card", "settings": { "heading": "Works on shelves too", "text": "Not just cabinets — mount it anywhere you reach for jars." } }
+      },
+      "block_order": ["card-1", "card-2", "card-3", "card-4"]
+    },
+    "jar_grid": {
+      "type": "jar-grid",
+      "settings": {
+        "heading": "Built for every jar",
+        "subheading": "One grip channel, 1\" to 3.5\" — it doesn't care what's inside."
+      },
+      "blocks": {
+        "jar-1": { "type": "jar", "settings": { "label": "Pasta sauce" } },
+        "jar-2": { "type": "jar", "settings": { "label": "Pickles" } },
+        "jar-3": { "type": "jar", "settings": { "label": "Jam" } },
+        "jar-4": { "type": "jar", "settings": { "label": "Soda bottles" } },
+        "jar-5": { "type": "jar", "settings": { "label": "Mason jars" } },
+        "jar-6": { "type": "jar", "settings": { "label": "Peanut butter" } }
+      },
+      "block_order": ["jar-1", "jar-2", "jar-3", "jar-4", "jar-5", "jar-6"]
     },
     "featured_product": {
       "type": "featured-product",
@@ -92,6 +139,18 @@
       },
       "block_order": ["photo-1", "photo-2", "photo-3"]
     },
+    "homepage_use_cases_marquee": {
+      "type": "homepage-use-cases-marquee",
+      "blocks": {
+        "item-1": { "type": "item", "settings": { "text": "In the kitchen" } },
+        "item-2": { "type": "item", "settings": { "text": "In the garage" } },
+        "item-3": { "type": "item", "settings": { "text": "On a shelf" } },
+        "item-4": { "type": "item", "settings": { "text": "For grandma" } },
+        "item-5": { "type": "item", "settings": { "text": "For weak grip or arthritis" } },
+        "item-6": { "type": "item", "settings": { "text": "For anyone tired of fighting stuck jars" } }
+      },
+      "block_order": ["item-1", "item-2", "item-3", "item-4", "item-5", "item-6"]
+    },
     "testimonials": {
       "type": "testimonials",
       "settings": { "heading": "Real hands. Real relief." },
@@ -101,6 +160,20 @@
         "t-3": { "type": "testimonial", "settings": { "quote": "I was skeptical but it works on every jar I've thrown at it, even stubborn pickle lids.", "name": "Dana K." } }
       },
       "block_order": ["t-1", "t-2", "t-3"]
+    },
+    "faq": {
+      "type": "faq",
+      "settings": {
+        "heading": "Questions people ask before buying",
+        "subheading": ""
+      },
+      "blocks": {
+        "q-1": { "type": "question", "settings": { "question": "Will it fit my jars?", "answer": "Yes — the grip channel adjusts from 1\" to 3.5\", which covers the vast majority of jars, jugs and bottles you'll find in a kitchen." } },
+        "q-2": { "type": "question", "settings": { "question": "How is it mounted?", "answer": "Screw it in or use the included adhesive strips under any cabinet or shelf. Installation takes about 5 minutes." } },
+        "q-3": { "type": "question", "settings": { "question": "Is it dishwasher safe?", "answer": "Yes, the grip head is food-safe, BPA-free, and dishwasher safe." } },
+        "q-4": { "type": "question", "settings": { "question": "What if it doesn't work for me?", "answer": "Every order is covered by our 30-day guarantee — reach out and we'll make it right." } }
+      },
+      "block_order": ["q-1", "q-2", "q-3", "q-4"]
     },
     "newsletter": {
       "type": "newsletter",
@@ -116,10 +189,15 @@
     "value_props",
     "seasonal_picks",
     "deals",
+    "compare",
     "how_it_works",
+    "use_it_carousel",
+    "jar_grid",
     "featured_product",
     "lifestyle_gallery",
+    "homepage_use_cases_marquee",
     "testimonials",
+    "faq",
     "newsletter"
   ]
 }

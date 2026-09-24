@@ -1,0 +1,38 @@
+<!-- sections/trust-marquee.liquid -->
+{% if section.blocks.size > 0 %}
+<div class="trust-marquee" aria-hidden="false">
+  <div class="trust-marquee-track">
+    {% for i in (1..2) %}
+      {% for block in section.blocks %}
+        <span class="trust-marquee-item" {{ block.shopify_attributes }}>
+          {% render 'icon', name: 'check' %}{{ block.settings.text }}
+        </span>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Trust marquee",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Item",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Text", "default": "Free tracked shipping" }
+      ]
+    }
+  ],
+  "default": {
+    "blocks": [
+      { "type": "item", "settings": { "text": "One-handed design" } },
+      { "type": "item", "settings": { "text": "Fits 1\" – 3.5\" lids" } },
+      { "type": "item", "settings": { "text": "Free tracked shipping" } },
+      { "type": "item", "settings": { "text": "30-day guarantee" } }
+    ]
+  }
+}
+{% endschema %}

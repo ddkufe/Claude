@@ -1,0 +1,36 @@
+{%- comment -%}
+  Quantity choice as selectable cards, synced to the real #Quantity input
+  and the existing bundle-progress widget. Discount math mirrors the
+  BUNDLE_TIERS table in theme.js (2 -> GRIP10 / 10%, 3+ -> GRIP20 / 20%)
+  and the real prices on the variant — nothing here is fabricated.
+  Usage: {% render 'pack-select', variant: product.selected_or_first_available_variant %}
+{%- endcomment -%}
+
+{%- assign unit_price = variant.price -%}
+{%- assign price_2 = unit_price | times: 2 -%}
+{%- assign price_2_off = price_2 | times: 0.9 | round -%}
+{%- assign price_3 = unit_price | times: 3 -%}
+{%- assign price_3_off = price_3 | times: 0.8 | round -%}
+
+<div class="pack-select" data-pack-select role="radiogroup" aria-label="Choose quantity">
+  <label class="pack-card is-active" data-pack-option data-qty="1">
+    <input type="radio" name="pack-choice" value="1" checked>
+    <span class="pack-check">{% render 'icon', name: 'check' %}</span>
+    <span class="pack-card-title">1x</span>
+    <span class="pack-card-price">{{ unit_price | money }}</span>
+  </label>
+  <label class="pack-card" data-pack-option data-qty="2">
+    <span class="pack-badge">Most popular · 10% off</span>
+    <input type="radio" name="pack-choice" value="2">
+    <span class="pack-check">{% render 'icon', name: 'check' %}</span>
+    <span class="pack-card-title">2x</span>
+    <span class="pack-card-price">{{ price_2_off | money }} <s>{{ price_2 | money }}</s></span>
+  </label>
+  <label class="pack-card" data-pack-option data-qty="3">
+    <span class="pack-badge">Best value · 20% off</span>
+    <input type="radio" name="pack-choice" value="3">
+    <span class="pack-check">{% render 'icon', name: 'check' %}</span>
+    <span class="pack-card-title">3x</span>
+    <span class="pack-card-price">{{ price_3_off | money }} <s>{{ price_3 | money }}</s></span>
+  </label>
+</div>

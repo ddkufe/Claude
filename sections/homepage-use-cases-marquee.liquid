@@ -1,0 +1,49 @@
+<!-- sections/homepage-use-cases-marquee.liquid -->
+{%- comment -%}
+  A second instance of the sitewide trust-marquee pattern (same track/
+  keyframe from assets/theme.css), homepage-only, with real use-case
+  copy instead of trust claims. Uses the .trust-marquee--teal modifier
+  so it doesn't read as a visual duplicate of the header strip.
+{%- endcomment -%}
+{% if section.blocks.size > 0 %}
+<div class="trust-marquee trust-marquee--teal" aria-hidden="false">
+  <div class="trust-marquee-track">
+    {% for i in (1..2) %}
+      {% for block in section.blocks %}
+        <span class="trust-marquee-item" {{ block.shopify_attributes }}>
+          {% render 'icon', name: 'check' %}{{ block.settings.text }}
+        </span>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Use-case marquee",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "item",
+      "name": "Item",
+      "settings": [
+        { "type": "text", "id": "text", "label": "Text", "default": "In the kitchen" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Use-case marquee",
+      "blocks": [
+        { "type": "item", "settings": { "text": "In the kitchen" } },
+        { "type": "item", "settings": { "text": "In the garage" } },
+        { "type": "item", "settings": { "text": "On a shelf" } },
+        { "type": "item", "settings": { "text": "For grandma" } },
+        { "type": "item", "settings": { "text": "For weak grip or arthritis" } },
+        { "type": "item", "settings": { "text": "For anyone tired of fighting stuck jars" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

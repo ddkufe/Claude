@@ -20,6 +20,8 @@
   {{ content_for_header }}
 
   {{ 'theme.css' | asset_url | stylesheet_tag }}
+  {{ 'homepage-redesign.css' | asset_url | stylesheet_tag }}
+  {{ 'spice.css' | asset_url | stylesheet_tag }}
 </head>
 <body class="{% if settings.enable_halloween_palette %}halloween-theme{% endif %}">
   <a class="skip-link" href="#MainContent">Skip to content</a>
@@ -27,6 +29,7 @@
   {% render 'seasonal-countdown' %}
   {% section 'announcement-bar' %}
   {% section 'header' %}
+  {% section 'trust-marquee' %}
 
   <main id="MainContent">
     {{ content_for_layout }}

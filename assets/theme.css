@@ -1136,3 +1136,133 @@ summary:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .seasonal-decor svg { animation: none !important; }
 }
+
+/* =====================================================================
+   Legacy live-theme sections (compare, FAQ, trust marquee, jar grid,
+   use-it carousel, homepage-use-cases-marquee) — built earlier but not
+   wired in. assets/homepage-redesign.css and assets/spice.css style
+   several of them against an older variable set, so alias those names
+   to the current tokens above instead of touching those files.
+   ===================================================================== */
+
+:root {
+  --paper: var(--color-bg);
+  --paper-2: var(--color-surface);
+  --ink: var(--color-text);
+  --on-ink: #F7F1E6;
+  --color-border-strong: var(--color-border);
+  --section-y: 96px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: var(--color-primary-dark);
+  margin-bottom: 10px;
+}
+
+/* ---------- Trust marquee (sitewide strip + homepage teal instance) ---------- */
+
+.trust-marquee {
+  overflow: hidden;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 14px 0;
+}
+.trust-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 48px;
+  animation: marquee 26s linear infinite;
+}
+.trust-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--color-text);
+}
+.trust-marquee-item svg { width: 18px; height: 18px; color: var(--color-secondary-dark); flex-shrink: 0; }
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-marquee-track { animation: none; overflow-x: auto; }
+}
+
+/* ---------- Comparison table (sections/compare.liquid) ---------- */
+
+.compare { padding: var(--section-y) 0; border-top: 1px solid var(--color-border); }
+.compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 480px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.compare-table th,
+.compare-table td {
+  padding: 16px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.98rem;
+}
+.compare-table thead th {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+.compare-table thead th:last-child { color: var(--color-primary-dark); }
+.compare-table tbody th { font-weight: 700; color: var(--color-text); }
+.compare-table tbody tr:last-child th,
+.compare-table tbody tr:last-child td { border-bottom: none; }
+.compare-col-them { color: var(--color-text-muted); }
+.compare-col-us { color: var(--color-primary-dark); font-weight: 700; }
+
+/* ---------- Quantity pack cards (snippets/pack-select.liquid) ----------
+   Not wired into main-product.liquid yet (it currently uses the
+   qty-stepper + bundle-progress combo) — styled and kept available as
+   a swap-in alternative. */
+.pack-select { display: grid; gap: 10px; margin: 20px 0; }
+.pack-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--color-surface);
+  transition: border-color .2s ease, background-color .2s ease;
+}
+.pack-card:has(input:checked),
+.pack-card.is-active { border-color: var(--color-primary); background: rgba(var(--color-primary-rgb, 228, 99, 58), 0.06); }
+.pack-card input { position: absolute; opacity: 0; width: 0; height: 0; }
+.pack-check { display: none; width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-primary); color: #fff; flex-shrink: 0; }
+.pack-card:has(input:checked) .pack-check,
+.pack-card.is-active .pack-check { display: inline-flex; }
+.pack-card-title { font-family: var(--font-heading); font-weight: 700; }
+.pack-card-price { margin-left: auto; font-weight: 800; }
+.pack-card-price s { color: var(--color-text-muted); font-weight: 500; margin-left: 6px; }
+.pack-badge {
+  position: absolute;
+  top: -11px;
+  left: 14px;
+  background: var(--color-secondary-dark);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}

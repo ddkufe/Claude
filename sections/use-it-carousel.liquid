@@ -1,0 +1,68 @@
+<!-- sections/use-it-carousel.liquid -->
+<div class="use-it container">
+  <div class="section-heading reveal">
+    {% if section.settings.eyebrow != blank %}
+      <span class="eyebrow">{{ section.settings.eyebrow }}</span>
+    {% endif %}
+    <h2>{{ section.settings.heading }}</h2>
+    {% if section.settings.subheading != blank %}
+      <p>{{ section.settings.subheading }}</p>
+    {% endif %}
+  </div>
+  <div class="use-it-grid">
+    {% for block in section.blocks %}
+      <div class="use-it-card reveal" {{ block.shopify_attributes }}>
+        <div class="use-it-card-media">
+          {% if block.settings.image != blank %}
+            <img
+              src="{{ block.settings.image | image_url: width: 700 }}"
+              srcset="{{ block.settings.image | image_url: width: 500 }} 500w, {{ block.settings.image | image_url: width: 700 }} 700w, {{ block.settings.image | image_url: width: 900 }} 900w"
+              sizes="(max-width: 700px) 92vw, 340px"
+              alt="{{ block.settings.image.alt | default: block.settings.heading | escape }}"
+              width="700"
+              height="{{ 700 | divided_by: block.settings.image.aspect_ratio }}"
+              loading="lazy"
+            >
+          {% endif %}
+        </div>
+        <div class="use-it-card-body">
+          <h3>{{ block.settings.heading }}</h3>
+          <p>{{ block.settings.text }}</p>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "How you'll use it",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "How you'll use it" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "One mount. Every jar after that." },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "From install to twist-off, here's the whole routine." }
+  ],
+  "blocks": [
+    {
+      "type": "card",
+      "name": "Card",
+      "settings": [
+        { "type": "image_picker", "id": "image", "label": "Image" },
+        { "type": "text", "id": "heading", "label": "Heading" },
+        { "type": "text", "id": "text", "label": "Text" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "How you'll use it",
+      "blocks": [
+        { "type": "card", "settings": { "heading": "Mount it once", "text": "Screws or adhesive, under any cabinet or shelf — about 2 minutes." } },
+        { "type": "card", "settings": { "heading": "Push the jar up", "text": "The teeth lock onto the lid so your hand doesn't have to." } },
+        { "type": "card", "settings": { "heading": "Twist it open", "text": "Turn the jar, not your wrist — the lid gives instantly." } },
+        { "type": "card", "settings": { "heading": "Works on shelves too", "text": "Not just cabinets — mount it anywhere you reach for jars." } }
+      ]
+    }
+  ]
+}
+{% endschema %}

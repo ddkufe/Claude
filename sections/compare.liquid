@@ -1,0 +1,69 @@
+<!-- sections/compare.liquid -->
+<div class="compare">
+  <div class="container">
+    <div class="section-heading reveal">
+      {% if section.settings.eyebrow != blank %}
+        <span class="eyebrow">{{ section.settings.eyebrow }}</span>
+      {% endif %}
+      <h2>{{ section.settings.heading }}</h2>
+      {% if section.settings.subheading != blank %}
+        <p>{{ section.settings.subheading }}</p>
+      {% endif %}
+    </div>
+
+    <div class="compare-scroll reveal">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="visually-hidden">What you're comparing</span></th>
+            <th scope="col">{{ section.settings.col_them }}</th>
+            <th scope="col">{{ section.settings.col_us }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for block in section.blocks %}
+            <tr {{ block.shopify_attributes }}>
+              <th scope="row">{{ block.settings.label }}</th>
+              <td class="compare-col-them">{{ block.settings.them }}</td>
+              <td class="compare-col-us">{{ block.settings.us }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Comparison table",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "The difference" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Every other fix asks your hands to do the work." },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "Rubber pads, hot water, rubber gloves, asking for help — they all still need grip strength. This doesn't." },
+    { "type": "text", "id": "col_them", "label": "Left column label", "default": "The usual workarounds" },
+    { "type": "text", "id": "col_us", "label": "Right column label", "default": "Ezgrip" }
+  ],
+  "blocks": [
+    {
+      "type": "row",
+      "name": "Comparison row",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Row label" },
+        { "type": "text", "id": "them", "label": "Their column" },
+        { "type": "text", "id": "us", "label": "Your column" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Comparison table",
+      "blocks": [
+        { "type": "row" },
+        { "type": "row" },
+        { "type": "row" }
+      ]
+    }
+  ]
+}
+{% endschema %}

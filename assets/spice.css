@@ -1,0 +1,88 @@
+/* spice.css (v3) — refinement layer on top of theme.css.
+   v1 added gradients, glows, pulsing badges and bouncy hovers; those
+   read as template-generic, so they're gone. What's left is detail work:
+   selection colour, optical alignment, image framing, and the mobile
+   hero reordering (kept from v1 — it's a real fold-conscious fix). */
+
+::selection { background: var(--color-primary); color: #fff; }
+
+/* Optical detail: pull the display type flush left by trimming the
+   left side-bearing on large headings. */
+.hero h1,
+.section-heading h2,
+.steps-header h2 { margin-left: -0.035em; }
+
+/* Hero image: hairline frame so a light product photo doesn't float
+   without edges against the near-white page. */
+.hero-media {
+  box-shadow: inset 0 0 0 1px rgba(23, 34, 29, 0.07);
+}
+
+/* Numerals: tabular + tighter for prices and quantities. */
+.product-price,
+.product-card-price,
+.hero-price-tag strong,
+.bundle-discounted,
+.qty-stepper input,
+.cart-summary { font-variant-numeric: tabular-nums; }
+
+/* Section transitions: hairline rules carry the rhythm between light
+   bands; dark bands supply their own edge, so suppress it there. */
+.compare + .lifestyle,
+.lifestyle + .compare { border-top: 1px solid var(--color-border); }
+.band--ink + .band--ink { border-top: 1px solid rgba(245, 241, 233, 0.14); }
+
+/* Footer: single hairline instead of a gradient stripe. */
+.site-footer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: rgba(245, 241, 233, 0.16);
+}
+.site-footer { position: relative; }
+
+/* Trust row on the product page: leading check marks aligned to the
+   text baseline rather than centred blobs. */
+.product-trust .pill { align-items: flex-start; }
+.product-trust .pill svg { margin-top: 3px; }
+
+/* FAQ / deals: give the open state a subtle left marker so the active
+   row is findable without relying on the chevron alone. */
+.deal-item[open] { box-shadow: inset 2px 0 0 var(--color-primary); }
+.deal-item[open] .deal-summary { padding-left: 18px; }
+
+/* ---------- Mobile hero: image-first, single CTA, fold-conscious ----------
+   On phones the hero would otherwise stack eyebrow + h1 + subheading +
+   two buttons + a trust row ABOVE the product photo — a long scroll of
+   text before any visual of the product. This reorders the grid
+   visually only (via `order`, so DOM/reading order is unchanged and
+   screen readers and SEO are unaffected), leads with the photo, and
+   reduces the hero to one primary action. */
+@media (max-width: 900px) {
+  .hero { padding: 24px 0 48px; }
+  .hero-grid { gap: 26px; }
+  .hero-media-wrap { order: -1; }
+
+  .hero h1 { font-size: clamp(2.35rem, 9vw, 3.1rem); }
+  .hero-actions { margin-top: 24px; }
+  .hero-actions .btn--primary { width: 100%; }
+  .hero-actions .btn--outline {
+    background: none;
+    border: none;
+    min-height: auto;
+    width: auto;
+    padding: 8px 4px;
+    font-size: 0.97rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    color: var(--color-text-muted);
+  }
+  .hero-actions .btn--outline:hover { background: none; color: var(--ink); }
+
+  .hero-trust { margin-top: 26px; padding-top: 18px; gap: 8px 20px; }
+  .hero-trust .pill { font-size: 0.88rem; }
+
+  .trust-marquee-item { font-size: 0.74rem; }
+}

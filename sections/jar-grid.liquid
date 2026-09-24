@@ -1,0 +1,49 @@
+<!-- sections/jar-grid.liquid -->
+<div class="jar-grid-section container">
+  <div class="section-heading reveal">
+    <h2>{{ section.settings.heading }}</h2>
+    {% if section.settings.subheading != blank %}
+      <p style="color:var(--color-text-muted);">{{ section.settings.subheading }}</p>
+    {% endif %}
+  </div>
+  <div class="jar-grid reveal">
+    {% for block in section.blocks %}
+      <div class="jar-tile" {{ block.shopify_attributes }}>
+        {% render 'icon', name: 'jar' %}
+        <span>{{ block.settings.label }}</span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Built for every jar",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Built for every jar" },
+    { "type": "textarea", "id": "subheading", "label": "Subheading", "default": "One grip channel, 1\" to 3.5\" — it doesn't care what's inside." }
+  ],
+  "blocks": [
+    {
+      "type": "jar",
+      "name": "Jar type",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Pasta sauce" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Built for every jar",
+      "blocks": [
+        { "type": "jar", "settings": { "label": "Pasta sauce" } },
+        { "type": "jar", "settings": { "label": "Pickles" } },
+        { "type": "jar", "settings": { "label": "Jam" } },
+        { "type": "jar", "settings": { "label": "Soda bottles" } },
+        { "type": "jar", "settings": { "label": "Mason jars" } },
+        { "type": "jar", "settings": { "label": "Peanut butter" } }
+      ]
+    }
+  ]
+}
+{% endschema %}

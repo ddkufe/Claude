@@ -1,0 +1,112 @@
+<!-- sections/contact-form.liquid -->
+<style>
+  .contact-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .contact-wrap .section-heading { margin-bottom: 8px; }
+  .contact-wrap .contact-sub {
+    color: var(--color-text-muted);
+    margin: 0 0 32px;
+  }
+  .contact-form-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .contact-form-grid .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) {
+    .contact-form-grid .row-2 { grid-template-columns: 1fr; }
+  }
+  .contact-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+  }
+  .contact-field input,
+  .contact-field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm, 6px);
+    font: inherit;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+  .contact-field textarea { resize: vertical; min-height: 140px; }
+  .contact-form-note {
+    margin-top: 14px;
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+  }
+  .contact-success {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm, 6px);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+  }
+</style>
+
+<div class="contact-section container">
+  <div class="contact-wrap">
+    <div class="section-heading reveal">
+      <h1>{{ section.settings.heading }}</h1>
+      {% if section.settings.subheading != blank %}
+        <p class="contact-sub">{{ section.settings.subheading }}</p>
+      {% endif %}
+    </div>
+
+    {% form 'contact' %}
+      {% if form.posted_successfully? %}
+        <div class="contact-success">
+          {% render 'icon', name: 'check' %}
+          <span>Thanks — your message is in. We usually reply within 24 hours.</span>
+        </div>
+      {% else %}
+        {% if form.errors %}
+          <div class="contact-success" style="border-color:#c0392b;">
+            {{ form.errors | default_errors }}
+          </div>
+        {% endif %}
+        <div class="contact-form-grid">
+          <div class="row-2">
+            <div class="contact-field">
+              <label for="ContactFormName">Name</label>
+              <input type="text" id="ContactFormName" name="contact[name]" value="{{ form.name }}" autocomplete="name" required>
+            </div>
+            <div class="contact-field">
+              <label for="ContactFormEmail">Email</label>
+              <input type="email" id="ContactFormEmail" name="contact[email]" value="{{ form.email }}" autocomplete="email" required>
+            </div>
+          </div>
+          <div class="contact-field">
+            <label for="ContactFormMessage">How can we help?</label>
+            <textarea id="ContactFormMessage" name="contact[body]" required>{{ form.body }}</textarea>
+          </div>
+          <div>
+            <button type="submit" class="btn btn--primary btn--large">Send message</button>
+          </div>
+        </div>
+        <p class="contact-form-note">{{ section.settings.note }}</p>
+      {% endif %}
+    {% endform %}
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Contact form",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Get in touch" },
+    { "type": "text", "id": "subheading", "label": "Subheading", "default": "Question about sizing, an order, or your 30-day guarantee? Send us a message and we'll get back to you within 24 hours." },
+    { "type": "text", "id": "note", "label": "Note under form", "default": "We typically respond within one business day." }
+  ]
+}
+{% endschema %}
