@@ -329,6 +329,10 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
         <p class="tip" id="voiceTip" hidden>Your device has no high-quality voice installed. On iPhone go to Settings › Accessibility › Spoken Content › Voices and download an Enhanced or Premium voice. On Android, install the Google voices in Text-to-speech settings. Then reopen this page.</p>
         <p class="tip" id="nativeStatus" hidden></p>
       </div>
+      <div class="field" id="elevenField" hidden><label for="elevenKey">ElevenLabs voices</label>
+        <div class="voice-row"><input id="elevenKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your ElevenLabs API key" style="flex:1 1 auto;min-width:0;background:var(--raised);border:1px solid var(--line);border-radius:3px;padding:8px 10px"><button class="btn" id="elevenSave" type="button">Save</button></div>
+        <p class="tip" id="elevenTip">Your ElevenLabs voices then appear at the top of the Voice list. The key stays in your iPhone's keychain. ElevenLabs charges for each character read.</p>
+      </div>
       <div class="field"><label for="dvoice">Character voice</label><select id="dvoice"></select>
         <p class="tip">Used for anything inside quotation marks.</p>
       </div>
@@ -703,12 +707,13 @@ let dialogMode = store.get('dialogMode', 'auto');
 let voices = [], voice = null, rate = store.get('rate', 0.95), token = 0, timer = null, watchdog = null;
 // Novelty and robotic voices that ship with phones and desktops; never pick these by default.
 const JUNK = /\b(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|pipe organ|fred|junior|kathy|ralph|ralf|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|espeak|compact)\b/i;
-const HQ = /natural|neural|premium|enhanced|online|wavenet|studio|siri/i;
+const HQ = /natural|neural|premium|enhanced|online|wavenet|studio|siri|elevenlabs/i;
 const userLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
 function voiceRank(v) {
   let r = 0;
   if (v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(userLang)) r += 20;
   if (HQ.test(v.name)) r += 10;
+  if (/\(ElevenLabs\)/.test(v.name)) r += 12; // voices from the reader's own ElevenLabs account
   if (/google/i.test(v.name)) r += 6; // Chrome's Google voices are far clearer than the built-in desktop ones
   if (/samantha|daniel|karen|moira|tessa|serena|aria|jenny|guy|ava|allison|evan|zoe|nathan/i.test(v.name)) r += 4;
   if (/microsoft (david|zira|mark|hazel|george)\b(?!.*natural)/i.test(v.name)) r -= 3;
@@ -814,6 +819,18 @@ function speakCurrent() {
     synth.speak(u);
   };
   next();
+  prefetchAhead(idx);
+}
+// ElevenLabs voices are fetched over the internet; ask the app for the next two sentences early so they play without a gap.
+function prefetchAhead(from) {
+  if (!window.__UNDERTONE_NATIVE) return;
+  const items = [];
+  for (let i = from + 1; i <= Math.min(sentences.length - 1, from + 2); i++) {
+    const s = sentences[i], dv = delivery(i);
+    const segs = dialogMode === 'off' || !s.segs.length ? [{ text: s.text, dialog: false }] : s.segs;
+    for (const g of segs) { const cv = g.dialog ? characterVoice() : null, v = cv && cv.voice ? cv.voice : voice; if (v && /^eleven:/.test(v.voiceURI)) items.push({ voice: v.voiceURI, text: g.text.trim(), rate: dv.rate }); }
+  }
+  if (items.length) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'prefetch', items }));
 }
 // The voice characters speak in: a second installed voice when there is one, otherwise the narrator a little higher.
 function characterVoice() {
@@ -821,8 +838,10 @@ function characterVoice() {
   if (dialogMode === 'pitch') return { voice: null, pitch: 1.18 };
   if (dialogMode !== 'auto') { const v = voices.find(x => x.voiceURI === dialogMode); if (v) return { voice: v, pitch: 1 }; }
   const lang = (voice?.lang || userLang).slice(0, 2).toLowerCase();
-  const alt = voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && x.lang && x.lang.toLowerCase().startsWith(lang) && isGood(x))
-    || voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && x.lang && x.lang.toLowerCase().startsWith(lang));
+  // Stay in the narrator's family: ElevenLabs characters for an ElevenLabs narrator, iPhone voices otherwise.
+  const fam = x => /^eleven:/.test(x.voiceURI) === /^eleven:/.test(voice?.voiceURI || '');
+  const alt = voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang) && isGood(x))
+    || voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang));
   return alt ? { voice: alt, pitch: 1 } : { voice: null, pitch: 1.18 };
 }
 function fillDialogSelect() {
@@ -902,6 +921,19 @@ if (window.__UNDERTONE_NATIVE) {
   // The narrator always speaks through the app's own audio, next to the music, so both reach CarPlay.
   // (An earlier "iPhone speech system" option kept the voice on the phone; it's gone.)
   window.__undertoneOutput = 'app'; store.set('voiceOut', 'app');
+  $('#elevenField').hidden = false;
+  $('#elevenSave').addEventListener('click', () => {
+    const k = $('#elevenKey').value.trim();
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'elevenKey', key: k }));
+    $('#elevenKey').value = ''; $('#elevenTip').textContent = k ? 'Checking your key…' : 'Removing your key…';
+  });
+  window.__elevenState = (has, count, err) => {
+    $('#elevenKey').placeholder = has ? 'Key saved. Paste a new one to replace it' : 'Paste your ElevenLabs API key';
+    $('#elevenSave').textContent = has ? 'Replace' : 'Save';
+    $('#elevenTip').textContent = err ? err + '. Check the key and try again.'
+      : has ? count + ' ElevenLabs voices added to the Voice list above. To remove the key, tap Replace with the box empty.'
+      : 'Your ElevenLabs voices then appear at the top of the Voice list. The key stays in your iPhone\'s keychain. ElevenLabs charges for each character read.';
+  };
   // The app reports what its speech engine is doing, so problems are visible on the phone.
   window.__nativeStatus = msg => { const el = $('#nativeStatus'); el.hidden = false; el.textContent = 'Voice engine: ' + msg; };
 }

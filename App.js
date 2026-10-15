@@ -9,6 +9,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { READER_HTML } from './src/readerHtml';
 import { BRIDGE_JS } from './src/bridge';
 import { createMusic } from './src/music';
+import * as Eleven from './src/eleven';
 
 // Play like a music or audiobook app: ignore the silent switch, keep going in the background,
 // and follow the phone's audio output (CarPlay, Bluetooth, AirPlay) for both the voice and the music.
@@ -71,20 +72,46 @@ export default function App() {
       else if (m.op === 'volume') mu.volume(m.vol);
       else if (m.op === 'mood') mu.mood(m.mood);
       else if (m.op === 'data') mu.data(m.mood, m.data);
-    } else if (m.type === 'voices') {
+    } else if (m.type === 'voices' || m.type === 'elevenKey') {
+      if (m.type === 'elevenKey') {
+        try { await Eleven.saveKey(m.key); } catch (e) { call('status', `couldn't save the key (${e?.message || e})`); return; }
+      } else await Eleven.loadKey();
+      let list = [];
       try {
-        const list = await Speech.getAvailableVoicesAsync();
-        call('voices', list.map(v => ({
+        list = (await Speech.getAvailableVoicesAsync()).map(v => ({
           name: voiceLabel(v), lang: v.language, voiceURI: v.identifier, localService: true, default: false,
-        })));
-        call('status', `ready, ${list.length} voices found`);
+        }));
       } catch (e) {
         call('status', `couldn't list voices (${e?.message || e})`);
+      }
+      let eleven = [], elevenError = null;
+      try { eleven = await Eleven.listVoices(); } catch (e) { elevenError = e?.message || String(e); }
+      call('voices', [...eleven, ...list]);
+      call('elevenState', Eleven.hasKey(), eleven.length, elevenError);
+      call('status', elevenError ? elevenError
+        : `ready, ${list.length} iPhone voices${Eleven.hasKey() ? ` and ${eleven.length} ElevenLabs voices` : ''}`);
+    } else if (m.type === 'prefetch') {
+      // Ask ElevenLabs for the next sentences while this one plays, so there's no gap between them.
+      for (const t of m.items || []) {
+        if (t.voice?.startsWith(Eleven.PREFIX) && Eleven.hasKey()) Eleven.audioFor(t.voice.slice(Eleven.PREFIX.length), t.text, t.rate).catch(() => {});
       }
     } else if (m.type === 'speak') {
       const token = stopToken.current; // a later 'stop' makes this sentence stale
       try { await setIsAudioActiveAsync(true); } catch {}
       if (stopToken.current !== token) return;
+      if (m.voice?.startsWith(Eleven.PREFIX)) {
+        if (Eleven.hasKey()) {
+          try {
+            const finished = await Eleven.speak(m.voice.slice(Eleven.PREFIX.length), m.text, m.rate, () => call('status', 'speaking with ElevenLabs'));
+            if (finished && stopToken.current === token) call('done', m.id);
+            return;
+          } catch (e) {
+            if (stopToken.current !== token) return;
+            call('status', `${e?.message || e}, using the iPhone voice for now`);
+          }
+        }
+        m.voice = null; // no key, or ElevenLabs failed: read this sentence with the iPhone's default voice
+      }
       const speakWith = (voice, retried) => {
         let started = false;
         // Always speak in the app's own audio session, the same one the music plays in, so the voice
@@ -116,6 +143,7 @@ export default function App() {
     } else if (m.type === 'stop') {
       stopToken.current++;
       Speech.stop();
+      Eleven.stop();
     }
   }, [call]);
 

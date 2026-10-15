@@ -45,6 +45,9 @@ export const BRIDGE_JS = `
       delete pending[id]; count--; if (count <= 0) { count = 0; synth.speaking = false; }
       if (u.onerror) u.onerror({ type: 'error', error: msg || 'synthesis-failed' });
     },
+    elevenState: function (hasKey, count, error) {
+      if (typeof window.__elevenState === 'function') window.__elevenState(hasKey, count, error);
+    },
     status: function (msg) {
       if (typeof window.__nativeStatus === 'function') window.__nativeStatus(msg);
     },
