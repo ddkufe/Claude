@@ -8,7 +8,18 @@ The reader itself (`reader/undertone.html`) is the same page as the web version.
 - the narrator and the music share the app's audio session, so both play through CarPlay, Bluetooth and AirPlay;
 - the music keeps playing with the silent switch on.
 
-## Try it on your iPhone (Expo Go)
+## Try it on your iPhone (Expo Go, no computer)
+
+Every push to the `undertone-app` branch publishes the app to Expo (see `.github/workflows/publish-expo-go.yml`).
+
+One-time setup:
+1. Create a free account at expo.dev and install **Expo Go** from the App Store.
+2. On expo.dev, open Account settings › Access tokens and create a token.
+3. On GitHub, open this repository's Settings › Secrets and variables › Actions and add a secret named `EXPO_TOKEN` with that token.
+
+Then sign in to Expo Go with the same account. The app appears there after each publish.
+
+## Try it from a computer
 
 1. Install **Expo Go** from the App Store.
 2. On a computer with Node.js installed:

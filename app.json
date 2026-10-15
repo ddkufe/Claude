@@ -30,6 +30,9 @@
     "backgroundColor": "#0e1115",
     "plugins": [
       "expo-audio"
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
   }
 }

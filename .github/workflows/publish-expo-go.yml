@@ -1,0 +1,52 @@
+# Publishes the app to Expo on every push to this branch, so it can be opened in Expo Go on an iPhone
+# without a computer. Needs a repository secret named EXPO_TOKEN (an access token from expo.dev).
+name: Publish to Expo Go
+
+on:
+  push:
+    branches: [undertone-app]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual publish' }}
+    steps:
+      - name: Check for the Expo token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Add a repository secret named EXPO_TOKEN with an access token from expo.dev (see README)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Link the Expo project
+        run: npx --yes eas-cli@24 init --non-interactive --force
+
+      - name: Turn on over-the-air updates
+        run: npx --yes eas-cli@24 update:configure --platform ios --environment preview --non-interactive
+
+      - name: Publish
+        run: |
+          npx --yes eas-cli@24 update --branch preview --platform ios --environment preview \
+            --message "$(echo "$COMMIT_MESSAGE" | head -1)" --non-interactive --json > update.json
+          cat update.json
+
+      - name: Link for Expo Go
+        run: |
+          OWNER=$(npx --yes eas-cli@24 whoami | head -1)
+          GROUP=$(node -e "const u=require('./update.json');console.log((Array.isArray(u)?u[0]:u).group)")
+          URL="https://expo.dev/accounts/$OWNER/projects/undertone/updates/$GROUP"
+          echo "Open on your iPhone and tap Preview, or sign in to Expo Go with the same account: $URL"
+          echo "### Open in Expo Go" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open this on your iPhone: $URL" >> "$GITHUB_STEP_SUMMARY"
