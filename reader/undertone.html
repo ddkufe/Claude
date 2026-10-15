@@ -1,0 +1,1145 @@
+<title>Undertone Reader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~62ch) on a dim page, a fixed player dock at the bottom.
+   The page's one bold move: an ambient "aura" glow tinted by the music's current mood. */
+@property --mood { syntax: '<color>'; inherits: true; initial-value: #5fa88a; }
+:root {
+  color-scheme: dark;
+  --bg: #0e1115;
+  --surface: #151a20;
+  --raised: #1c222a;
+  --fg: #e6e1d6;
+  --muted: #8f939a;
+  --line: #262d36;
+  --hl: rgba(255,255,255,.07);
+  --aura-strength: .2;
+  --mood: #5fa88a;
+  --f-read: 'Literata', Georgia, 'Times New Roman', serif;
+  --f-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --read-size: 1.18rem;
+  transition: --mood 3s ease;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #eceef1; --surface: #f7f8fa; --raised: #ffffff; --fg: #1b1f25; --muted: #5d636c;
+    --line: #d5d9df; --hl: rgba(0,0,0,.05); --aura-strength: .13;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eceef1; --surface: #f7f8fa; --raised: #ffffff; --fg: #1b1f25; --muted: #5d636c;
+  --line: #d5d9df; --hl: rgba(0,0,0,.05); --aura-strength: .13;
+}
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before {
+  content: ""; position: fixed; inset: -20vh -20vw; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60vmax 45vmax at 15% 0%, color-mix(in srgb, var(--mood) calc(var(--aura-strength) * 100%), transparent), transparent 70%),
+    radial-gradient(55vmax 40vmax at 100% 100%, color-mix(in srgb, var(--mood) calc(var(--aura-strength) * 80%), transparent), transparent 70%);
+}
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--mood); outline-offset: 2px; border-radius: 6px; }
+
+/* Top bar */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.top-in {
+  max-width: 900px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 220px; }
+.brand b { font-family: var(--f-read); font-weight: 600; font-size: 1.15rem; letter-spacing: .01em; }
+.brand span { color: var(--muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface);
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: .85rem;
+}
+.btn:hover { border-color: color-mix(in srgb, var(--mood) 60%, var(--line)); }
+.btn svg { width: 16px; height: 16px; }
+select.chap {
+  max-width: 220px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .85rem;
+}
+
+/* Reader */
+main {
+  position: relative; z-index: 1; max-width: 900px; margin: 0 auto;
+  padding-block: 28px 230px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.notice {
+  max-width: 62ch; margin: 0 auto 22px; font-size: .85rem; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; line-height: 1.5;
+}
+.notice strong { color: var(--fg); }
+article { max-width: 62ch; margin: 0 auto; font-family: var(--f-read); font-size: var(--read-size); line-height: 1.75; }
+article h2 {
+  font-family: var(--f-read); font-weight: 600; font-size: 1.45rem; line-height: 1.25; text-wrap: balance;
+  margin: 2.2em 0 .7em; letter-spacing: -.005em;
+}
+article h2:first-child { margin-top: .4em; }
+article p {
+  margin: 0 0 1em; padding-left: 14px; border-left: 2px solid color-mix(in srgb, var(--pm, var(--line)) 45%, transparent);
+  hyphens: auto; overflow-wrap: break-word;
+}
+.shift {
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 1.6em 0 .5em; display: flex; align-items: center; gap: 8px;
+}
+.shift i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+.s { cursor: pointer; border-radius: 4px; transition: background .25s, color .25s; }
+.s:hover { background: var(--hl); }
+.s.now {
+  background: color-mix(in srgb, var(--mood) 24%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood) 24%, transparent);
+}
+.endmark { text-align: center; color: var(--muted); font-family: var(--f-mono); font-size: .75rem; letter-spacing: .2em; margin-top: 3em; }
+
+/* Player dock */
+.dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.dock-in {
+  max-width: 900px; margin: 0 auto; display: grid; gap: 10px;
+  padding-block: 10px 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.map-wrap { display: grid; gap: 4px; }
+.map-row { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: .68rem; color: var(--muted); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+#map { width: 100%; height: 14px; display: block; border-radius: 4px; cursor: pointer; }
+.ctrl { display: flex; align-items: center; gap: 12px; }
+.mood {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px;
+}
+.mood-dot { width: 34px; height: 34px; flex: none; border-radius: 50%; position: relative; background: color-mix(in srgb, var(--mood) 25%, transparent); }
+.mood-dot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; }
+.mood-txt { min-width: 0; line-height: 1.25; }
+.mood-txt b { display: block; font-size: .92rem; }
+.mood-txt small { display: block; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.transport { display: flex; align-items: center; gap: 6px; flex: none; }
+.ib {
+  width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; cursor: pointer;
+}
+.ib:hover { background: var(--hl); }
+.ib svg { width: 20px; height: 20px; }
+.play {
+  width: 54px; height: 54px; background: var(--fg); color: var(--bg);
+}
+.play:hover { background: var(--fg); transform: scale(1.04); }
+.play svg { width: 24px; height: 24px; }
+.ib[aria-expanded="true"] { background: var(--hl); }
+
+.panel {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 20px;
+  border-top: 1px solid var(--line); padding-top: 12px;
+}
+.field { display: grid; gap: 6px; min-width: 0; }
+.field label, .field .lbl { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.field output { font-family: var(--f-mono); letter-spacing: 0; text-transform: none; color: var(--fg); font-weight: 500; }
+.voice-row { display: flex; gap: 8px; }
+.voice-row select { flex: 1 1 auto; min-width: 0; }
+.voice-row .btn { flex: none; }
+.dlg { color: color-mix(in srgb, var(--fg) 82%, var(--mood)); font-style: italic; }
+.tip { margin: 0; font-size: .78rem; line-height: 1.45; color: var(--muted); }
+.field select { width: 100%; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .88rem; }
+input[type=range] { width: 100%; accent-color: var(--mood); }
+.field label.check { display: flex; justify-content: flex-start; gap: 8px; align-items: center; font-size: .88rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); cursor: pointer; }
+.check input { accent-color: var(--mood); width: 18px; height: 18px; }
+
+/* Loading overlay */
+.loading {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 75%, transparent);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.lib { max-width: 62ch; margin: 0 auto 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.lib h3 { margin: 0; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lib ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lib-item { display: flex; align-items: stretch; gap: 8px; }
+.lib-open { flex: 1 1 auto; min-width: 0; text-align: left; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: grid; gap: 3px; position: relative; overflow: hidden; }
+.lib-item.current .lib-open { border-color: var(--mood); }
+.lib-open b { font-family: var(--f-read); font-weight: 600; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-open small { color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.lib-open i { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--mood); }
+.lib-rm { flex: none; background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font-size: .8rem; color: var(--muted); cursor: pointer; }
+.lib-rm[data-confirm="1"] { color: var(--fg); border-color: #b4443f; }
+.loading div { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; max-width: 360px; text-align: center; line-height: 1.5; }
+.drop { outline: 2px dashed var(--mood); outline-offset: -10px; }
+
+@media (max-width: 520px) {
+  .brand span { display: none; }
+  select.chap { max-width: 150px; }
+  .ib.skip { width: 36px; }
+  .mood-txt small { display: none; }
+  :root { --read-size: 1.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
+  .s { transition: none; }
+}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><b>Undertone</b><span id="bookTitle">The Keeper of Gull Point</span></div>
+    <div class="top-actions">
+      <select class="chap" id="chap" aria-label="Jump to section"></select>
+      <button class="btn" id="libBtn" type="button" aria-expanded="false" aria-controls="lib">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M9 4v16M14 5l5 15"/></svg>
+        Library
+      </button>
+      <label class="btn" for="file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6.5A2.5 2.5 0 0 0 4 21.5 2.5 2.5 0 0 0 6.5 24"/><path d="M12 7v6M9 10h6"/></svg>
+        Open book
+      </label>
+      <input type="file" id="file" accept=".pdf,.epub,.txt,.md,application/pdf,application/epub+zip,text/plain" hidden>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="lib" id="lib" hidden aria-label="Your library">
+    <h3>Your library</h3>
+    <ul id="libList"></ul>
+    <p class="tip">Books are saved on this device, in this browser, and reopen where you stopped.</p>
+  </section>
+  <p class="notice" id="notice"><strong>Sample story loaded.</strong> Press play to hear it read aloud with music that follows the mood. Open your own PDF, EPUB or text file with <strong>Open book</strong>, or drop it on the page. Tap any sentence to read from there.</p>
+  <article id="text" aria-live="off"></article>
+</main>
+
+<div class="dock">
+  <div class="dock-in">
+    <div class="map-wrap">
+      <canvas id="map" aria-label="Mood map of the book. Tap to jump."></canvas>
+      <div class="map-row"><span id="secName">Section</span><span id="pct">0%</span></div>
+    </div>
+    <div class="ctrl">
+      <div class="mood">
+        <div class="mood-dot"><canvas id="viz" width="68" height="68"></canvas></div>
+        <div class="mood-txt"><b id="moodName">Calm</b><small id="moodWhy">Music follows the text</small></div>
+      </div>
+      <div class="transport">
+        <button class="ib skip" id="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+        <button class="ib play" id="play" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="ib skip" id="next" aria-label="Next sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+        <button class="ib" id="setBtn" aria-label="Settings" aria-expanded="false" aria-controls="panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+      </div>
+    </div>
+    <div class="panel" id="panel" hidden>
+      <div class="field"><label for="rate">Reading speed <output id="rateOut">1.0×</output></label><input type="range" id="rate" min="0.6" max="2" step="0.05" value="0.95"></div>
+      <div class="field voice-field"><label for="voice">Voice</label>
+        <div class="voice-row"><select id="voice"></select><button class="btn" id="testVoice" type="button">Hear it</button></div>
+        <p class="tip" id="voiceTip" hidden>Your device has no high-quality voice installed. On iPhone go to Settings › Accessibility › Spoken Content › Voices and download an Enhanced or Premium voice. On Android, install the Google voices in Text-to-speech settings. Then reopen this page.</p>
+      </div>
+      <div class="field"><label for="dvoice">Character voice</label><select id="dvoice"></select>
+        <p class="tip">Used for anything inside quotation marks.</p>
+      </div>
+      <div class="field"><label for="mvol">Music volume <output id="mvolOut">25%</output></label><input type="range" id="mvol" min="0" max="1" step="0.01" value="0.25"></div>
+      <div class="field"><label for="moodMode">Music mood</label>
+        <select id="moodMode">
+          <option value="auto">Match the text (auto)</option>
+          <option value="ominous">Always ominous</option>
+          <option value="tense">Always tense</option>
+          <option value="melancholy">Always melancholy</option>
+          <option value="mystical">Always mystical</option>
+          <option value="adventurous">Always adventurous</option>
+          <option value="calm">Always calm</option>
+          <option value="off">No music</option>
+        </select>
+      </div>
+      <div class="field" id="carTip"><span class="lbl">In the car</span>
+        <p class="tip">Sound follows your phone's audio output. If it still plays from the phone while connected, open Control Center, tap the AirPlay icon on the Now Playing card and pick your car. Opening this page in Safari works most reliably.</p>
+      </div>
+      <div class="field"><span class="lbl">Reading</span>
+        <label class="check"><input type="checkbox" id="moodVoice" checked> Voice follows the mood (pace, pitch, pauses)</label>
+        <label class="check"><input type="checkbox" id="follow" checked> Keep the current sentence in view</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<audio id="out" playsinline hidden></audio>
+<div class="loading" id="loading" hidden><div id="loadingMsg">Opening…</div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('undertone:' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('undertone:' + k, JSON.stringify(v)); } catch {} }
+};
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------- Moods: words that signal each one ---------------- */
+const MOODS = {
+  ominous: { label: 'Ominous', color: '#b4443f',
+    words: 'dark darkness darkened shadow shadows gloom gloomy grave graves tomb death dead die died dying corpse blood bloody dread doom doomed cold crypt bone bones skull ghost ghosts haunt haunted curse cursed black night midnight fog mist decay rot rotten rotting silent silence sinister evil demon devil hell grim pale hollow abyss crow raven wither withered ruin ruined coffin funeral specter spectre phantom eerie wicked ash ashes dust grim hideous horror horrible monster beast creature lurk lurking wail howl moan unholy damned omen sepulchre gaunt corruption dread dusk ominous foreboding ghastly macabre cellar crept creep creeping' },
+  tense: { label: 'Tense', color: '#e07b39',
+    words: 'run running ran chase chased chasing hunt hunted fear afraid terror terrified scream screamed screaming panic heart pounding pounded breath breathe breathing gasp gasped gasping sudden suddenly quick quickly fast faster danger dangerous trap trapped knife gun shot shots fire smoke escape escaped hide hid hiding footsteps follow followed alarm urgent struggle struggled fight fought attack attacked crash crashed shatter shattered grab grabbed tremble trembling sweat race raced desperate desperately seize seized lock locked caught hurry hurried flee fled slam slammed crack cracked bang threat threatened kill killed blade bleeding wound shout shouted rush rushed' },
+  melancholy: { label: 'Melancholy', color: '#6c8fc6',
+    words: 'sad sadness sorrow sorrowful grief grieve grieving tear tears weep wept cry cried crying alone lonely loneliness loss lost memory memories remember remembered mourn mourning regret regretted farewell goodbye miss missed missing empty ache ached aching pain heartbreak heartbroken rain grey gray fade faded fading letter widow orphan sigh sighed wistful longing forgotten autumn buried absence gone broken weary tired pity mercy forgive forgiveness apart departed' },
+  mystical: { label: 'Mystical', color: '#a57fd8',
+    words: 'magic magical spell spells star stars starlight moon moonlight glow glowed glowing shimmer shimmered shimmering ancient dream dreams dreaming dreamed wonder wondrous secret secrets rune runes crystal spirit spirits strange stranger silver fairy fae enchant enchanted enchantment prophecy sacred temple vision visions ethereal aurora celestial whisper whispered whispering luminous radiant mystery mysterious myth legend legends spiral oracle sorcerer witch wizard otherworldly heavens eternal' },
+  adventurous: { label: 'Adventurous', color: '#d3a43b',
+    words: 'journey journeys ship ships sail sailed sailing sea seas ocean voyage map maps horizon mountain mountains climb climbed explore explored discover discovered treasure sword swords battle ride rode horse horses road wind wild brave bravely hero heroes quest north south island islands gallop galloped charge charged forward cheer cheered captain crew distant land lands wave waves course compass expedition fly flew soar soared bold thrill adventure adventures sailboat mast deck harbor harbour port coast frontier' },
+  calm: { label: 'Calm', color: '#5aa58a',
+    words: 'quiet quietly peace peaceful gentle gently soft softly warm warmth sun sunny sunlight sunrise morning breeze meadow garden calm still stillness rest resting sleep slept smile smiled tea home field fields river stream bird birds birdsong golden easy slow slowly content serene tender comfort cozy cosy summer spring flower flowers green gulls dawn kind kindness laugh laughed love loved safe hush lazy drowsy bloom blossom honey bread hearth' }
+};
+const MOOD_KEYS = Object.keys(MOODS);
+function stem(w) {
+  if (w.length > 5) { for (const s of ['ingly', 'edly', 'ness', 'ing', 'ful', 'ly', 'ed', 'es', 's']) if (w.endsWith(s) && w.length - s.length >= 3) return w.slice(0, -s.length); }
+  else if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+  return w;
+}
+const LEX = new Map();
+for (const k of MOOD_KEYS) for (const w of MOODS[k].words.split(/\s+/)) { if (!LEX.has(w)) LEX.set(w, k); const st = stem(w); if (!LEX.has(st)) LEX.set(st, k); }
+
+function scoreText(text) {
+  const sc = {}, hits = {};
+  for (const k of MOOD_KEYS) { sc[k] = 0; hits[k] = {}; }
+  const toks = text.toLowerCase().match(/[a-z']+/g) || [];
+  for (const t0 of toks) {
+    const t = t0.replace(/'s$/, '');
+    const m = LEX.get(t) || LEX.get(stem(t));
+    if (m) { sc[m]++; hits[m][t] = (hits[m][t] || 0) + 1; }
+  }
+  sc.tense += Math.min(3, (text.match(/!/g) || []).length * 0.5);
+  return { sc, hits };
+}
+
+function analyze(book) {
+  // Group paragraphs into ~110-word passages (never across sections), then pick a mood per passage
+  // with hysteresis so the music does not flip on every stray word.
+  const passages = [];
+  book.sections.forEach((sec, si) => {
+    let cur = null;
+    sec.paras.forEach((p, pi) => {
+      if (!cur) cur = { si, paras: [], text: '', words: 0 };
+      cur.paras.push(p); cur.text += ' ' + p.text; cur.words += p.text.split(/\s+/).length;
+      if (cur.words >= 110) { passages.push(cur); cur = null; }
+    });
+    if (cur) passages.push(cur);
+  });
+  const best = r => MOOD_KEYS.reduce((a, b) => r.sc[b] > r.sc[a] ? b : a);
+  let mood = null;
+  for (const ps of passages) { ps.r = scoreText(ps.text); if (!mood && ps.r.sc[best(ps.r)] >= 2) mood = best(ps.r); }
+  mood = mood || 'calm';
+  for (const ps of passages) {
+    const b = best(ps.r), s = ps.r.sc;
+    if (b !== mood && s[b] >= 2 && s[b] >= 1.25 * s[mood] + 0.5) mood = b;
+    const cues = Object.entries(ps.r.hits[mood]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]);
+    for (const p of ps.paras) { p.mood = mood; p.cues = cues; }
+  }
+}
+
+/* ---------------- Text → sections → paragraphs → sentences ---------------- */
+function splitSentences(text) {
+  const raw = text.match(/[^.!?…]+(?:[.!?…]+["'”’)\]]*|$)\s*/g) || [text];
+  const out = [];
+  for (let s of raw) {
+    s = s.trim(); if (!s) continue;
+    if (out.length && s.length < 4) { out[out.length - 1] += ' ' + s; continue; }
+    while (s.length > 220) { // long sentences stall some speech engines; break at a comma or space
+      let cut = s.lastIndexOf(', ', 200); if (cut < 80) cut = s.lastIndexOf('; ', 200); if (cut < 80) cut = s.lastIndexOf(' ', 200); if (cut < 40) cut = 200;
+      out.push(s.slice(0, cut + 1).trim()); s = s.slice(cut + 1).trim();
+    }
+    if (s) out.push(s);
+  }
+  return out;
+}
+// Split a sentence into narration and quoted dialogue. Curly quotes open and close; straight quotes toggle.
+// The quote state carries across sentences so a long speech stays in the character's voice.
+function segment(text, inQuote) {
+  const segs = []; let buf = '', dlg = inQuote;
+  const flush = () => { if (buf) { segs.push({ text: buf, dialog: dlg }); buf = ''; } };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '“' || (ch === '"' && !dlg)) { flush(); dlg = true; buf = ch; }
+    else if (ch === '”' || (ch === '"' && dlg)) { buf += ch; flush(); dlg = false; }
+    else buf += ch;
+  }
+  flush();
+  // Fold punctuation-only scraps into a neighbour so they don't become their own utterance.
+  const out = [];
+  for (const g of segs) {
+    if (!/[\p{L}\p{N}]/u.test(g.text) && out.length) out[out.length - 1].text += g.text;
+    else if (out.length && out[out.length - 1].dialog === g.dialog) out[out.length - 1].text += g.text;
+    else out.push({ ...g });
+  }
+  return { segs: out.length ? out : [{ text, dialog: false }], inQuote: dlg };
+}
+function clean(t) { return t.replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim(); }
+
+let book = null, sentences = [], idx = 0, playing = false;
+
+function loadBook(b, key) {
+  stopSpeech(); playing = false; setPlayIcon();
+  b.sections = b.sections.map(s => ({ title: s.title, paras: s.paras.map(clean).filter(t => t.length > 1).map(text => ({ text })) })).filter(s => s.paras.length);
+  if (!b.sections.length) throw new Error('No readable text was found in this file.');
+  analyze(b);
+  book = b; book.key = key || b.title;
+  render();
+  idx = Math.min(store.get('pos:' + book.key, 0), sentences.length - 1);
+  store.set('len:' + book.key, sentences.length); store.set('last', book.key); store.set('seen:' + book.key, Date.now());
+  $('#bookTitle').textContent = book.title;
+  document.title = 'Undertone Reader';
+  setCurrent(idx, true);
+  drawMap();
+}
+
+function render() {
+  const art = $('#text'); art.textContent = '';
+  const frag = document.createDocumentFragment();
+  const chap = $('#chap'); chap.textContent = '';
+  sentences = [];
+  let prevMood = null;
+  book.sections.forEach((sec, si) => {
+    sec.first = sentences.length;
+    const h = document.createElement('h2'); h.textContent = sec.title; h.id = 'sec' + si; frag.appendChild(h);
+    const o = document.createElement('option'); o.value = si; o.textContent = sec.title; chap.appendChild(o);
+    sec.paras.forEach(p => {
+      if (p.mood !== prevMood) {
+        const d = document.createElement('div'); d.className = 'shift'; d.style.setProperty('--c', MOODS[p.mood].color);
+        d.innerHTML = '<i></i>'; d.append('Music turns ' + MOODS[p.mood].label.toLowerCase()); frag.appendChild(d); prevMood = p.mood;
+      }
+      const el = document.createElement('p'); el.style.setProperty('--pm', MOODS[p.mood].color);
+      const parts = splitSentences(p.text);
+      let inQuote = false;
+      parts.forEach((s, k) => {
+        const sp = document.createElement('span'); sp.className = 's'; sp.dataset.i = sentences.length;
+        const r = segment(s, inQuote); inQuote = r.inQuote;
+        for (const g of r.segs) { if (g.dialog) { const q = document.createElement('span'); q.className = 'dlg'; q.textContent = g.text; sp.appendChild(q); } else sp.append(g.text); }
+        el.appendChild(sp); if (k) el.insertBefore(document.createTextNode(' '), sp);
+        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
+      });
+      frag.appendChild(el);
+    });
+  });
+  book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
+  const end = document.createElement('div'); end.className = 'endmark'; end.textContent = '— END —'; frag.appendChild(end);
+  art.appendChild(frag);
+}
+
+/* ---------------- Mood display + map ---------------- */
+let moodMode = store.get('moodMode', 'auto');
+function moodAt(i) { const s = sentences[i]; if (!s) return 'calm'; return (moodMode !== 'auto' && moodMode !== 'off') ? moodMode : s.mood; }
+let shownMood = null;
+function showMood(i) {
+  const m = moodAt(i), s = sentences[i];
+  document.documentElement.style.setProperty('--mood', MOODS[m].color);
+  $('#moodName').textContent = moodMode === 'off' ? 'Music off' : MOODS[m].label;
+  $('#moodWhy').textContent = moodMode === 'off' ? 'Turn music back on in settings'
+    : moodMode !== 'auto' ? 'Locked in settings'
+    : (s && s.cues && s.cues.length ? 'Cues: ' + s.cues.join(', ') : 'Carried over from earlier');
+  if (m !== shownMood) { shownMood = m; }
+  if (playing) Music.setMood(moodMode === 'off' ? null : m);
+}
+
+const map = $('#map');
+function drawMap() {
+  if (!book) return;
+  const dpr = window.devicePixelRatio || 1, w = map.clientWidth, h = map.clientHeight;
+  map.width = Math.round(w * dpr); map.height = Math.round(h * dpr);
+  const g = map.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const n = sentences.length; if (!n) return;
+  let start = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i === n || sentences[i].mood !== sentences[start].mood) {
+      g.fillStyle = MOODS[sentences[start].mood].color; g.globalAlpha = 0.85;
+      const x0 = start / n * w, x1 = i / n * w; g.fillRect(x0, 0, Math.max(1, x1 - x0), h); start = i;
+    }
+  }
+  g.globalAlpha = 1;
+  const x = (idx + 0.5) / n * w;
+  const fg = getComputedStyle(document.body).color;
+  g.fillStyle = fg; g.fillRect(Math.max(0, x - 1.5), 0, 3, h);
+}
+map.addEventListener('click', e => {
+  const r = map.getBoundingClientRect(); const f = (e.clientX - r.left) / r.width;
+  seek(Math.max(0, Math.min(sentences.length - 1, Math.floor(f * sentences.length))), true);
+});
+addEventListener('resize', () => drawMap());
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => drawMap());
+
+/* ---------------- Current sentence ---------------- */
+let curEl = null;
+function setCurrent(i, forceScroll) {
+  idx = i; const s = sentences[i]; if (!s) return;
+  if (curEl) curEl.classList.remove('now');
+  curEl = s.el; curEl.classList.add('now');
+  if ($('#follow').checked || forceScroll) {
+    const r = curEl.getBoundingClientRect(), vh = innerHeight;
+    if (forceScroll || r.top < vh * 0.18 || r.bottom > vh * 0.62) curEl.scrollIntoView({ block: 'center', behavior: reduced || forceScroll ? 'auto' : 'smooth' });
+  }
+  $('#secName').textContent = book.sections[s.si].title;
+  $('#pct').textContent = Math.round(i / Math.max(1, sentences.length - 1) * 100) + '%';
+  $('#chap').value = s.si;
+  showMood(i); drawMap(); updateNowPlaying();
+  store.set('pos:' + book.key, i);
+}
+function seek(i, scroll) {
+  setCurrent(i, scroll);
+  if (playing) speakCurrent();
+}
+$('#text').addEventListener('click', e => { const sp = e.target.closest('.s'); if (sp) seek(+sp.dataset.i, false); });
+$('#chap').addEventListener('change', e => seek(book.sections[+e.target.value].first, true));
+$('#prev').addEventListener('click', () => seek(Math.max(0, idx - 1), false));
+$('#next').addEventListener('click', () => seek(Math.min(sentences.length - 1, idx + 1), false));
+
+/* ---------------- Speech ---------------- */
+const synth = window.speechSynthesis;
+let dialogMode = store.get('dialogMode', 'auto');
+let voices = [], voice = null, rate = store.get('rate', 0.95), token = 0, timer = null, watchdog = null;
+// Novelty and robotic voices that ship with phones and desktops; never pick these by default.
+const JUNK = /\b(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|pipe organ|fred|junior|kathy|ralph|ralf|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|espeak|compact)\b/i;
+const HQ = /natural|neural|premium|enhanced|online|wavenet|studio|siri/i;
+const userLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+function voiceRank(v) {
+  let r = 0;
+  if (v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(userLang)) r += 20;
+  if (HQ.test(v.name)) r += 10;
+  if (/google/i.test(v.name)) r += 6; // Chrome's Google voices are far clearer than the built-in desktop ones
+  if (/samantha|daniel|karen|moira|tessa|serena|aria|jenny|guy|ava|allison|evan|zoe|nathan/i.test(v.name)) r += 4;
+  if (/microsoft (david|zira|mark|hazel|george)\b(?!.*natural)/i.test(v.name)) r -= 3;
+  if (JUNK.test(v.name)) r -= 50;
+  return r;
+}
+function isGood(v) { return HQ.test(v.name) || /google/i.test(v.name) || voiceRank(v) >= 24; }
+function loadVoices() {
+  if (!synth) return;
+  const all = synth.getVoices().filter(v => !JUNK.test(v.name));
+  voices = all.slice().sort((a, b) => voiceRank(b) - voiceRank(a) || a.name.localeCompare(b.name));
+  const sel = $('#voice'); sel.textContent = '';
+  if (!voices.length) { const o = document.createElement('option'); o.textContent = 'Device default voice'; sel.appendChild(o); fillDialogSelect(); return; }
+  const saved = store.get('voice', null);
+  const mine = voices.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(userLang));
+  const groups = [
+    ['Clearest voices', mine.filter(isGood)],
+    ['Other voices in your language', mine.filter(v => !isGood(v))],
+    ['Other languages', voices.filter(v => !mine.includes(v))]
+  ];
+  for (const [label, list] of groups) {
+    if (!list.length) continue;
+    const g = document.createElement('optgroup'); g.label = label;
+    list.forEach(v => { const o = document.createElement('option'); o.value = v.voiceURI; o.textContent = v.name.replace(/^(Microsoft|Google)\s+/i, '$1 ') + ' · ' + v.lang; g.appendChild(o); });
+    sel.appendChild(g);
+  }
+  voice = voices.find(v => v.voiceURI === saved) || voices[0];
+  sel.value = voice.voiceURI;
+  $('#voiceTip').hidden = mine.some(isGood);
+  fillDialogSelect();
+}
+if (synth) { loadVoices(); synth.addEventListener?.('voiceschanged', loadVoices); }
+$('#voice').addEventListener('change', e => { voice = voices.find(v => v.voiceURI === e.target.value) || null; store.set('voice', e.target.value); fillDialogSelect(); if (playing) speakCurrent(); else testVoice(); });
+function testVoice() {
+  if (!synth) return;
+  if (playing) pause();
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance('This is how I will sound reading your book.');
+  if (voice) { u.voice = voice; u.lang = voice.lang; }
+  u.rate = rate; synth.speak(u);
+}
+$('#testVoice').addEventListener('click', testVoice);
+$('#dvoice').addEventListener('change', e => {
+  dialogMode = e.target.value; store.set('dialogMode', dialogMode); fillDialogSelect();
+  if (playing) { speakCurrent(); return; }
+  if (!synth || dialogMode === 'off') return;
+  synth.cancel();
+  const cv = characterVoice(), u = new SpeechSynthesisUtterance('“Is someone there?” This is how characters will sound.');
+  const v = cv.voice || voice; if (v) { u.voice = v; u.lang = v.lang; }
+  u.rate = rate; u.pitch = cv.pitch; synth.speak(u);
+});
+const rateEl = $('#rate');
+rateEl.value = rate; $('#rateOut').textContent = (+rate).toFixed(2).replace(/0$/, '') + '×';
+rateEl.addEventListener('input', () => { rate = +rateEl.value; $('#rateOut').textContent = rate.toFixed(2).replace(/0$/, '') + '×'; store.set('rate', rate); });
+rateEl.addEventListener('change', () => { if (playing) speakCurrent(); });
+
+// How the narrator performs each mood: pace (× your speed), pitch, and the breath after each sentence (ms).
+const DELIVERY = {
+  ominous:     { rate: 0.86, pitch: 0.82, pause: 380 },
+  tense:       { rate: 1.1,  pitch: 1.0,  pause: 60 },
+  melancholy:  { rate: 0.88, pitch: 0.9,  pause: 320 },
+  mystical:    { rate: 0.92, pitch: 1.06, pause: 300 },
+  adventurous: { rate: 1.05, pitch: 1.04, pause: 140 },
+  calm:        { rate: 0.96, pitch: 1.0,  pause: 220 }
+};
+let moodVoice = store.get('moodVoice', true);
+function delivery(i) {
+  const s = sentences[i];
+  if (!moodVoice || !s) return { rate, pitch: 1, pause: s && s.paraEnd ? 350 : 120 };
+  const d = DELIVERY[moodAt(i)];
+  let pause = d.pause;
+  if (s.paraEnd) pause += 450;
+  if (s.secEnd) pause += 900;
+  if (/[?!]["'”’]?$/.test(s.text) && moodAt(i) !== 'tense') pause += 120;
+  if (/^\W*(then|suddenly|but)\b/i.test(s.text) && moodAt(i) === 'tense') pause = Math.max(0, pause - 40);
+  return { rate: Math.min(2.5, rate * d.rate), pitch: d.pitch, pause };
+}
+function estMs(text, r = rate) { return Math.max(900, text.split(/\s+/).length / (2.7 * r) * 1000 + 250); }
+function stopSpeech() { token++; clearTimeout(timer); clearTimeout(watchdog); if (synth && (synth.speaking || synth.pending)) synth.cancel(); }
+function speakCurrent() {
+  stopSpeech();
+  const my = token, s = sentences[idx];
+  if (!s) return;
+  setCurrent(idx);
+  const dv = delivery(idx);
+  const done = () => { if (my === token && playing) { clearTimeout(watchdog); timer = setTimeout(() => { if (my === token && playing) advance(); }, dv.pause); } };
+  if (!synth) { timer = setTimeout(done, estMs(s.text, dv.rate)); return; } // no speech engine: still pace the text and music
+  const segs = dialogMode === 'off' || !s.segs.length ? [{ text: s.text, dialog: false }] : s.segs;
+  let j = 0;
+  const next = () => {
+    if (my !== token || !playing) return;
+    if (j >= segs.length) { done(); return; }
+    const g = segs[j++];
+    const u = new SpeechSynthesisUtterance(g.text.trim());
+    const cv = g.dialog ? characterVoice() : null;
+    const v = cv && cv.voice ? cv.voice : voice;
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = dv.rate; u.pitch = Math.min(2, dv.pitch * (cv ? cv.pitch : 1)); u.volume = 1;
+    u.onend = next;
+    u.onerror = e => { if (my !== token || e.error === 'interrupted' || e.error === 'canceled') return; timer = setTimeout(next, 300); };
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => { if (my === token && playing && synth.speaking) return; next(); }, estMs(g.text, dv.rate) * 2.5 + 5000);
+    synth.speak(u);
+  };
+  next();
+}
+// The voice characters speak in: a second installed voice when there is one, otherwise the narrator a little higher.
+function characterVoice() {
+  if (dialogMode === 'off') return null;
+  if (dialogMode === 'pitch') return { voice: null, pitch: 1.18 };
+  if (dialogMode !== 'auto') { const v = voices.find(x => x.voiceURI === dialogMode); if (v) return { voice: v, pitch: 1 }; }
+  const lang = (voice?.lang || userLang).slice(0, 2).toLowerCase();
+  const alt = voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && x.lang && x.lang.toLowerCase().startsWith(lang) && isGood(x))
+    || voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && x.lang && x.lang.toLowerCase().startsWith(lang));
+  return alt ? { voice: alt, pitch: 1 } : { voice: null, pitch: 1.18 };
+}
+function fillDialogSelect() {
+  const sel = $('#dvoice'); sel.textContent = '';
+  const add = (parent, value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; parent.appendChild(o); };
+  const auto = characterVoice();
+  add(sel, 'auto', 'Automatic' + (dialogMode === 'auto' && auto && auto.voice ? ' (' + auto.voice.name + ')' : ''));
+  add(sel, 'pitch', 'Narrator voice, higher');
+  add(sel, 'off', 'Off (narrator reads everything)');
+  const lang = (voice?.lang || userLang).slice(0, 2).toLowerCase();
+  const list = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(lang));
+  if (list.length) { const g = document.createElement('optgroup'); g.label = 'Pick a voice'; list.forEach(v => add(g, v.voiceURI, v.name + ' · ' + v.lang)); sel.appendChild(g); }
+  sel.value = [...sel.options].some(o => o.value === dialogMode) ? dialogMode : 'auto';
+}
+function advance() {
+  if (idx >= sentences.length - 1) { pause(); return; }
+  idx++; speakCurrent();
+}
+
+/* ---------------- Play / pause ---------------- */
+let wake = null;
+function setPlayIcon() {
+  $('#playIcon').innerHTML = playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+  $('#play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+}
+function play() {
+  if (!book) return;
+  if (idx >= sentences.length - 1 && sentences.length > 1) idx = 0;
+  playing = true; setPlayIcon();
+  // Ask iPhone to treat this as media playback (like a music app) so it follows CarPlay, Bluetooth and AirPlay
+  // and ignores the silent switch. Safari 17+ supports this; elsewhere it is simply skipped.
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  Music.start(store.get('mvol2', 0.25));
+  Music.setMood(moodMode === 'off' ? null : moodAt(idx));
+  speakCurrent(); startViz();
+  try { navigator.wakeLock?.request('screen').then(w => wake = w).catch(() => {}); } catch {}
+}
+function pause() {
+  playing = false; setPlayIcon(); stopSpeech(); Music.pause();
+  try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'paused'; } catch {}
+  try { wake?.release(); } catch {} wake = null;
+}
+$('#play').addEventListener('click', () => playing ? pause() : play());
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select, textarea')) return;
+  if (e.code === 'Space') { e.preventDefault(); playing ? pause() : play(); }
+  else if (e.key === 'ArrowRight') seek(Math.min(sentences.length - 1, idx + 1));
+  else if (e.key === 'ArrowLeft') seek(Math.max(0, idx - 1));
+});
+// Car, lock-screen and headphone controls: play/pause, and skip a sentence (or a paragraph with seek).
+if ('mediaSession' in navigator) {
+  const on = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch {} };
+  on('play', () => play());
+  on('pause', () => pause());
+  on('stop', () => pause());
+  on('nexttrack', () => seek(Math.min(sentences.length - 1, idx + 1)));
+  on('previoustrack', () => seek(Math.max(0, idx - 1)));
+  on('seekforward', () => { let i = idx; while (i < sentences.length - 1 && !sentences[i].paraEnd) i++; seek(Math.min(sentences.length - 1, i + 1)); });
+  on('seekbackward', () => seek(Math.max(0, idx - 6)));
+}
+let lastMeta = '';
+function updateNowPlaying() {
+  if (!('mediaSession' in navigator) || !book || !sentences[idx]) return;
+  const sec = book.sections[sentences[idx].si].title, key = book.title + '|' + sec;
+  try {
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    if (key !== lastMeta && window.MediaMetadata) {
+      lastMeta = key;
+      navigator.mediaSession.metadata = new MediaMetadata({ title: sec, artist: book.title, album: 'Undertone · ' + MOODS[moodAt(idx)].label });
+    }
+  } catch {}
+}
+
+/* ---------------- Settings ---------------- */
+if (window.__UNDERTONE_NATIVE) $('#carTip').hidden = true; // the iPhone app routes all sound to the car itself
+$('#setBtn').addEventListener('click', () => {
+  const p = $('#panel'); p.hidden = !p.hidden; $('#setBtn').setAttribute('aria-expanded', String(!p.hidden));
+});
+const mvol = $('#mvol');
+mvol.value = store.get('mvol2', 0.25); $('#mvolOut').textContent = Math.round(mvol.value * 100) + '%';
+mvol.addEventListener('input', () => { $('#mvolOut').textContent = Math.round(mvol.value * 100) + '%'; store.set('mvol2', +mvol.value); Music.volume(+mvol.value); });
+const mm = $('#moodMode'); mm.value = moodMode;
+mm.addEventListener('change', () => { moodMode = mm.value; store.set('moodMode', moodMode); showMood(idx); });
+const mv = $('#moodVoice'); mv.checked = moodVoice;
+mv.addEventListener('change', () => { moodVoice = mv.checked; store.set('moodVoice', moodVoice); });
+const follow = $('#follow'); follow.checked = store.get('follow', true);
+follow.addEventListener('change', () => store.set('follow', follow.checked));
+
+/* ---------------- Generative music (Web Audio, no audio files) ---------------- */
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const SCENES = {
+  ominous: { root: 38, wave: 'sawtooth', cutoff: 420, lfo: 0.03, detune: 9, chordDur: 14, pad: 0.17, wet: 0.7, sub: 0.11, wind: 0.05, windFreq: 380,
+    chords: [[0, 7, 12, 15], [1, 8, 13, 17], [0, 6, 12, 15], [-2, 5, 10, 13]],
+    bell: { every: 7, notes: [12, 18, 13, 24], wave: 'sine', gain: 0.06, decay: 6, ratio: 2.76, ratioGain: 0.35 } },
+  tense: { root: 40, wave: 'sawtooth', cutoff: 760, lfo: 0.2, detune: 11, chordDur: 8, pad: 0.11, wet: 0.35, sub: 0.06, tremolo: 7,
+    chords: [[0, 7, 12, 13], [0, 6, 12, 15], [1, 7, 13, 16]],
+    stepRate: 280, arp: { seq: [12, 12, 13, 12, 12, 15, 12, 10], oct: 0, wave: 'square', gain: 0.03, decay: 0.12, lp: 1300 },
+    drum: { pattern: 'Xx..', freq: 75, end: 38, gain: 0.55, decay: 0.32 } },
+  melancholy: { root: 45, wave: 'triangle', cutoff: 1100, lfo: 0.05, detune: 7, chordDur: 9, pad: 0.14, wet: 0.6,
+    chords: [[0, 7, 12, 15, 19], [-4, 3, 8, 12, 15], [3, 10, 15, 19], [-2, 5, 10, 14]],
+    stepRate: 80, arp: { walk: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15], oct: 12, prob: 0.55, wave: 'triangle', gain: 0.06, decay: 2.8, ratio: 2, ratioGain: 0.25, lp: 2500 } },
+  mystical: { root: 49, wave: 'sine', cutoff: 2400, lfo: 0.04, detune: 12, chordDur: 11, pad: 0.17, wet: 0.85,
+    chords: [[0, 4, 8, 14], [2, 6, 10, 16], [0, 6, 10, 14]],
+    stepRate: 110, arp: { random: [0, 2, 4, 6, 8, 10, 12, 14, 16], oct: 24, prob: 0.4, wave: 'sine', gain: 0.035, decay: 3.5, ratio: 2.76, ratioGain: 0.2 } },
+  adventurous: { root: 50, wave: 'sawtooth', cutoff: 1900, lfo: 0.1, detune: 9, chordDur: 4, pad: 0.1, wet: 0.4,
+    chords: [[0, 7, 12, 16], [-2, 5, 10, 14], [5, 12, 17, 21], [0, 7, 12, 16]],
+    stepRate: 240, arp: { chordArp: [0, 1, 2, 3, 2, 1], oct: 12, wave: 'triangle', gain: 0.045, decay: 0.35, lp: 3200 },
+    drum: { pattern: 'X..x..X.X..x.x..', freq: 120, end: 45, gain: 0.45, decay: 0.5 } },
+  calm: { root: 53, wave: 'triangle', cutoff: 1600, lfo: 0.05, detune: 6, chordDur: 10, pad: 0.13, wet: 0.6,
+    chords: [[0, 4, 7, 11, 14], [2, 6, 9, 14], [-3, 4, 7, 12], [5, 9, 12, 16]],
+    stepRate: 100, arp: { random: [0, 2, 4, 7, 9, 12, 14, 16, 19], oct: 12, prob: 0.35, wave: 'sine', gain: 0.05, decay: 2.2, ratio: 2, ratioGain: 0.15 } }
+};
+const FADE = 5;
+const Music = (() => {
+  let outEl = null, direct = false;
+  let ctx = null, master, reverb, dryIn, analyser, current = null, tick = null, noiseBuf, level = 0.4, wanted = null;
+  function makeIR(sec) {
+    const len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    return b;
+  }
+  function init() {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = level;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
+    analyser = ctx.createAnalyser(); analyser.fftSize = 128; analyser.smoothingTimeConstant = 0.85;
+    reverb = ctx.createConvolver(); reverb.buffer = makeIR(4.5);
+    dryIn = ctx.createGain();
+    dryIn.connect(master); reverb.connect(master);
+    // Carve a gap in the music where speech lives (roughly 1–4 kHz) so words stay clear over it.
+    const voiceGap = ctx.createBiquadFilter(); voiceGap.type = 'peaking'; voiceGap.frequency.value = 2200; voiceGap.Q.value = 0.8; voiceGap.gain.value = -9;
+    const presence = ctx.createBiquadFilter(); presence.type = 'highshelf'; presence.frequency.value = 5000; presence.gain.value = -6;
+    master.connect(voiceGap); voiceGap.connect(presence); presence.connect(comp); comp.connect(analyser);
+    // Send the music out through an <audio> element rather than straight to the speakers. Phones treat a playing
+    // media element as "now playing" audio, which follows the car or headphones and shows the car's media controls.
+    try {
+      const dest = ctx.createMediaStreamDestination(); analyser.connect(dest);
+      outEl = $('#out'); outEl.srcObject = dest.stream;
+    } catch { analyser.connect(ctx.destination); outEl = null; }
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    tick = setInterval(schedule, 60);
+    return true;
+  }
+  function osc(type, f) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; return o; }
+  function makeLayer(mood) {
+    const c = SCENES[mood], now = ctx.currentTime + 0.05;
+    const L = { mood, c, out: ctx.createGain(), pad: ctx.createGain(), filt: ctx.createBiquadFilter(), stops: [], step: 0 };
+    const send = ctx.createGain(); send.gain.value = c.wet;
+    L.out.connect(dryIn); L.out.connect(send); send.connect(reverb);
+    L.filt.type = 'lowpass'; L.filt.frequency.value = c.cutoff; L.filt.Q.value = 0.8;
+    L.pad.connect(L.filt); L.filt.connect(L.out);
+    const lfo = osc('sine', c.lfo), lg = ctx.createGain(); lg.gain.value = c.cutoff * 0.45; lfo.connect(lg); lg.connect(L.filt.frequency); lfo.start(now); L.stops.push(lfo);
+    if (c.tremolo) { const t = osc('sine', c.tremolo), tg = ctx.createGain(); tg.gain.value = 0.3; L.pad.gain.value = 0.7; t.connect(tg); tg.connect(L.pad.gain); t.start(now); L.stops.push(t); }
+    if (c.sub) { const o = osc('sine', mtof(c.root - 12)), g = ctx.createGain(); g.gain.value = c.sub; o.connect(g); g.connect(L.out); o.start(now); L.stops.push(o); }
+    if (c.wind) {
+      const n = ctx.createBufferSource(); n.buffer = noiseBuf; n.loop = true;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = c.windFreq; bp.Q.value = 1.4;
+      const wl = osc('sine', 0.07), wg = ctx.createGain(); wg.gain.value = c.windFreq * 0.6; wl.connect(wg); wg.connect(bp.frequency);
+      const g = ctx.createGain(); g.gain.value = c.wind; n.connect(bp); bp.connect(g); g.connect(L.out); n.start(now); wl.start(now); L.stops.push(n, wl);
+    }
+    if (c.arp) { L.arpBus = ctx.createBiquadFilter(); L.arpBus.type = 'lowpass'; L.arpBus.frequency.value = c.arp.lp || 9000; L.arpBus.connect(L.out); }
+    L.nextChord = now; L.chordIdx = 0; L.nextStep = now + 0.5; L.nextBell = now + 2 + Math.random() * 3;
+    L.out.gain.setValueAtTime(0.0001, now); L.out.gain.exponentialRampToValueAtTime(1, now + FADE);
+    return L;
+  }
+  function fadeOut(L) {
+    const now = ctx.currentTime;
+    L.out.gain.cancelScheduledValues(now); L.out.gain.setValueAtTime(Math.max(0.0001, L.out.gain.value), now);
+    L.out.gain.exponentialRampToValueAtTime(0.0001, now + FADE);
+    L.dead = true;
+    setTimeout(() => L.stops.forEach(o => { try { o.stop(); } catch {} }), FADE * 1000 + 300);
+    setTimeout(() => { try { L.out.disconnect(); } catch {} }, (FADE + L.c.chordDur * 1.6) * 1000);
+  }
+  function tone(L, t, f, a, dest) {
+    const g = ctx.createGain(), att = a.attack || 0.006, end = t + att + a.decay;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a.gain, t + att); g.gain.exponentialRampToValueAtTime(0.0001, end);
+    const o = osc(a.wave || 'sine', f); o.connect(g); o.start(t); o.stop(end + 0.05);
+    if (a.ratio) { const o2 = osc('sine', f * a.ratio), g2 = ctx.createGain(); g2.gain.value = a.ratioGain; o2.connect(g2); g2.connect(g); o2.start(t); o2.stop(end + 0.05); }
+    g.connect(dest || L.out);
+  }
+  function drum(L, t, d, gain) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(d.freq, t); o.frequency.exponentialRampToValueAtTime(d.end, t + d.decay * 0.8);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d.decay);
+    o.connect(g); g.connect(L.out); o.start(t); o.stop(t + d.decay + 0.05);
+  }
+  function chord(L, t) {
+    const c = L.c, notes = c.chords[L.chordIdx], dur = c.chordDur, peak = c.pad / Math.sqrt(notes.length * 2);
+    L.cur = notes;
+    for (const n of notes) for (const dt of [-c.detune, c.detune]) {
+      const o = osc(c.wave, mtof(c.root + n)); o.detune.value = dt;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + dur * 0.35);
+      g.gain.setValueAtTime(peak, t + dur); g.gain.linearRampToValueAtTime(0, t + dur * 1.45);
+      o.connect(g); g.connect(L.pad); o.start(t); o.stop(t + dur * 1.5);
+    }
+  }
+  function step(L, t) {
+    const c = L.c, a = c.arp;
+    if (a) {
+      let n = null;
+      if (a.seq) n = a.seq[L.step % a.seq.length];
+      else if (a.chordArp) { const ch = L.cur || c.chords[0]; n = ch[a.chordArp[L.step % a.chordArp.length] % ch.length]; }
+      else if (a.random) { if (Math.random() < a.prob) n = a.random[Math.floor(Math.random() * a.random.length)]; }
+      else if (a.walk && Math.random() < a.prob) {
+        if (L.wi == null) L.wi = a.walk.length - 1;
+        L.wi += Math.random() < 0.75 ? -1 : 2;
+        if (L.wi < 0) L.wi = a.walk.length - 1; if (L.wi >= a.walk.length) L.wi = 0;
+        n = a.walk[L.wi];
+      }
+      if (n !== null) tone(L, t, mtof(c.root + a.oct + n), a, L.arpBus);
+    }
+    if (c.drum) { const ch = c.drum.pattern[L.step % c.drum.pattern.length]; if (ch === 'X') drum(L, t, c.drum, c.drum.gain); else if (ch === 'x') drum(L, t, c.drum, c.drum.gain * 0.55); }
+  }
+  function schedule() {
+    const L = current; if (!ctx || !L || ctx.state !== 'running') return;
+    const c = L.c, ahead = ctx.currentTime + 0.3;
+    while (L.nextChord < ahead) { chord(L, L.nextChord); L.nextChord += c.chordDur; L.chordIdx = (L.chordIdx + 1) % c.chords.length; }
+    if (c.stepRate) { const sd = 60 / c.stepRate; while (L.nextStep < ahead) { step(L, L.nextStep); L.nextStep += sd; L.step++; } }
+    if (c.bell) while (L.nextBell < ahead) { const b = c.bell; tone(L, L.nextBell, mtof(c.root + b.notes[Math.floor(Math.random() * b.notes.length)]), b); L.nextBell += b.every * (0.6 + Math.random() * 0.8); }
+  }
+  return {
+    start(vol) {
+      level = vol; if (!ctx && !init()) return; master.gain.setTargetAtTime(level, ctx.currentTime, 0.1); if (ctx.state !== 'running') ctx.resume();
+      if (outEl && !direct) outEl.play().catch(() => { direct = true; try { analyser.connect(ctx.destination); } catch {} }); // fall back to plain output
+    },
+    pause() { if (ctx && ctx.state === 'running') ctx.suspend(); if (outEl && !direct) outEl.pause(); },
+    volume(v) { level = v; if (ctx) master.gain.setTargetAtTime(v, ctx.currentTime, 0.1); },
+    setMood(m) {
+      wanted = m; if (!ctx) return;
+      if (current && current.mood === m) return;
+      if (current) fadeOut(current);
+      current = m ? makeLayer(m) : null;
+      schedule();
+    },
+    analyser: () => analyser
+  };
+})();
+
+/* ---------------- Mood visualizer (inside the dot) ---------------- */
+const viz = $('#viz'), vg = viz.getContext('2d');
+let vizOn = false;
+function startViz() { if (vizOn) return; vizOn = true; requestAnimationFrame(drawViz); }
+function drawViz() {
+  const an = Music.analyser();
+  vg.clearRect(0, 0, 68, 68);
+  if (an && playing) {
+    const data = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(data);
+    const col = MOODS[moodAt(idx)].color; vg.fillStyle = col;
+    const bars = 9, w = 4, gap = 2.4, x0 = 34 - (bars * (w + gap) - gap) / 2;
+    for (let b = 0; b < bars; b++) {
+      const v = data[2 + b * 3] / 255, h = 6 + v * 34;
+      vg.globalAlpha = 0.9; vg.fillRect(x0 + b * (w + gap), 34 - h / 2, w, h);
+    }
+    vg.globalAlpha = 1;
+    requestAnimationFrame(drawViz);
+  } else vizOn = false;
+}
+
+/* ---------------- File loading ---------------- */
+const scripts = {};
+function loadScript(src) {
+  return scripts[src] || (scripts[src] = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load the file reader. Check your connection and try again.')); document.head.appendChild(s);
+  }));
+}
+function busy(msg) { const l = $('#loading'); if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else l.hidden = true; }
+
+async function readPDF(file) {
+  const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  await loadScript(base + 'pdf.worker.min.js');
+  await loadScript(base + 'pdf.min.js');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const sections = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    busy('Reading page ' + p + ' of ' + pdf.numPages + '…');
+    const page = await pdf.getPage(p), tc = await page.getTextContent();
+    const lines = []; let line = null;
+    for (const it of tc.items) {
+      if (!('str' in it)) continue;
+      const y = it.transform[5], h = Math.abs(it.transform[3]) || 10;
+      if (!line || Math.abs(y - line.y) > h * 0.5) { line = { y, h, t: '' }; lines.push(line); }
+      line.t += it.str;
+      if (it.hasEOL) line = null;
+    }
+    const kept = lines.map(l => ({ ...l, t: l.t.trim() })).filter(l => l.t && !/^\d{1,4}$/.test(l.t));
+    const gaps = []; for (let i = 1; i < kept.length; i++) gaps.push(Math.abs(kept[i - 1].y - kept[i].y));
+    const med = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 4)] : 0;
+    const paras = []; let cur = '';
+    kept.forEach((l, i) => {
+      const gap = i ? Math.abs(kept[i - 1].y - l.y) : 0;
+      if (cur && med && gap > med * 1.5) { paras.push(cur); cur = ''; }
+      cur = cur ? (cur.endsWith('-') ? cur.slice(0, -1) + l.t : cur + ' ' + l.t) : l.t;
+    });
+    if (cur) paras.push(cur);
+    if (paras.length) sections.push({ title: 'Page ' + p, paras });
+  }
+  if (!sections.length) throw new Error('This PDF has no selectable text. It may be scanned pages, which can’t be read aloud yet.');
+  let title = file.name.replace(/\.pdf$/i, '');
+  try { const meta = await pdf.getMetadata(); if (meta?.info?.Title && meta.info.Title.trim().length > 2) title = meta.info.Title.trim(); } catch {}
+  return { title, sections };
+}
+
+async function readEPUB(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const cont = xml(await zip.file('META-INF/container.xml').async('string'));
+  const opfPath = cont.querySelector('rootfile').getAttribute('full-path');
+  const dir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opf = xml(await zip.file(opfPath).async('string'));
+  const manifest = {};
+  opf.querySelectorAll('manifest > item').forEach(it => manifest[it.getAttribute('id')] = it.getAttribute('href'));
+  const title = (opf.getElementsByTagNameNS('*', 'title')[0]?.textContent || file.name.replace(/\.epub$/i, '')).trim();
+  const resolve = href => { const parts = (dir + decodeURIComponent(href.split('#')[0])).split('/'), out = []; for (const p of parts) { if (p === '..') out.pop(); else if (p !== '.') out.push(p); } return out.join('/'); };
+  const BLOCK = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,div,section,article,pre,dd,dt,td,figcaption';
+  const sections = [];
+  const items = [...opf.querySelectorAll('spine > itemref')];
+  for (let k = 0; k < items.length; k++) {
+    busy('Reading chapter ' + (k + 1) + ' of ' + items.length + '…');
+    const href = manifest[items[k].getAttribute('idref')]; if (!href) continue;
+    const f = zip.file(resolve(href)); if (!f) continue;
+    const src = await f.async('string');
+    let doc = new DOMParser().parseFromString(src, 'application/xhtml+xml');
+    if (doc.querySelector('parsererror') || !doc.body) doc = new DOMParser().parseFromString(src, 'text/html');
+    const body = doc.body || doc.documentElement;
+    body.querySelectorAll('script,style,nav').forEach(n => n.remove());
+    const paras = []; let head = null;
+    body.querySelectorAll(BLOCK).forEach(el => {
+      if (el.querySelector(BLOCK)) return; // only leaf blocks, so nested divs aren't read twice
+      const t = el.textContent.replace(/\s+/g, ' ').trim(); if (!t) return;
+      if (/^h[1-6]$/i.test(el.localName) && !head) { head = t; return; }
+      paras.push(t);
+    });
+    if (!paras.length && body.textContent.trim()) paras.push(...body.textContent.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean));
+    if (paras.length) sections.push({ title: head || 'Part ' + (sections.length + 1), paras });
+  }
+  return { title, sections };
+}
+
+function readText(name, text) {
+  const sections = []; let cur = { title: 'Beginning', paras: [] };
+  for (const block of text.replace(/\r/g, '').split(/\n\s*\n/)) {
+    const b = block.replace(/^#+\s*/, '').trim(); if (!b) continue;
+    if (b.length < 80 && /^(chapter|book|part|prologue|epilogue)\b/i.test(b)) { if (cur.paras.length) sections.push(cur); cur = { title: b, paras: [] }; continue; }
+    cur.paras.push(b);
+  }
+  if (cur.paras.length) sections.push(cur);
+  return { title: name.replace(/\.(txt|md)$/i, ''), sections };
+}
+
+async function openFile(file) {
+  if (!file) return;
+  pause();
+  busy('Opening ' + file.name + '…');
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    let b;
+    if (ext === 'pdf' || file.type === 'application/pdf') b = await readPDF(file);
+    else if (ext === 'epub') b = await readEPUB(file);
+    else if (ext === 'txt' || ext === 'md' || file.type.startsWith('text/')) b = readText(file.name, await file.text());
+    else throw new Error('That file type isn’t supported. Open a PDF, EPUB or plain text file.');
+    busy('Finding the mood of each passage…');
+    await new Promise(r => setTimeout(r, 30));
+    const key = file.name + ':' + file.size;
+    const raw = { key, title: b.title, sections: JSON.parse(JSON.stringify(b.sections)), added: Date.now() };
+    loadBook(b, key);
+    const saved = await Library.put(raw);
+    $('#notice').innerHTML = '';
+    const strong = document.createElement('strong'); strong.textContent = b.title;
+    $('#notice').append(strong, saved
+      ? ' is saved to your library and will reopen where you stop. Press play, or tap a sentence to start from there.'
+      : ' is ready. Press play, or tap a sentence to start from there. This browser wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
+    busy(null);
+  } catch (err) {
+    busy(null);
+    $('#notice').innerHTML = '';
+    const s = document.createElement('strong'); s.textContent = 'Couldn’t open ' + file.name + '. ';
+    $('#notice').append(s, err.message || String(err));
+    $('#notice').scrollIntoView({ block: 'center' });
+  }
+}
+$('#file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop'); });
+addEventListener('dragleave', e => { if (e.target === document.documentElement || !e.relatedTarget) document.body.classList.remove('drop'); });
+addEventListener('drop', e => { e.preventDefault(); document.body.classList.remove('drop'); openFile(e.dataTransfer.files[0]); });
+
+/* ---------------- Sample story (original, written for this app) ---------------- */
+const SAMPLE = { title: 'The Keeper of Gull Point', sections: [
+  { title: 'Morning at Gull Point', paras: [
+    'The sun came up slowly over the harbor, warm and golden on the water. Mara carried her tea down to the old stone wall and sat in the quiet, listening to the gulls and the soft rush of the tide. The boats rocked gently at their moorings. “Fine morning, Keeper,” old Ben called from his boat. “Fine morning, Ben,” she said, and smiled.',
+    'A light breeze moved through the meadow grass behind the cottage, and for a while there was nothing to do but rest and watch the morning arrive. She had kept the lighthouse for eleven summers, and she still loved this hour best. The world felt tender and easy, as if it had only just been made.' ] },
+  { title: 'The Letter', paras: [
+    'The letter was waiting on the kitchen table when she came back in. She knew the handwriting before she read the name, and her hands began to ache. It was from Tomas, her brother, written the autumn before he was lost.',
+    'Rain began to fall against the grey window. She read his words twice, then a third time, remembering the sound of his laugh and the empty chair that had stood by the fire every winter since. Some grief never fades. It only grows quieter, and waits.',
+    'At the bottom of the page he had written: If you are reading this, I never came home. Forgive me. Look under the floor of the lamp room.' ] },
+  { title: 'The Map', paras: [
+    'Beneath the loose board she found an oilcloth bundle, and inside it a map. It showed the coast she knew, and then, far past the horizon, an island no chart had ever named. A course was marked across the open sea in her brother’s careful ink.',
+    'By noon she had the little sailboat ready. The wind was fresh from the north, the sky was wide and bright, and the waves ran out ahead of her like a road. She raised the sail, set her compass for the distant island, and felt the old thrill of the voyage rise in her chest. Whatever Tomas had found out there, she would find it too.' ] },
+  { title: 'Lights Beneath the Water', paras: [
+    'Night came, clear and full of stars. Near the island the sea changed color. Pale lights glowed beneath the surface, drifting in slow rings of silver and blue, as if the moon had been broken into pieces and scattered in the deep.',
+    'Mara leaned over the side and watched them shimmer. They moved like something ancient and dreaming, and when she whispered her brother’s name, the lights gathered beneath the boat and turned into a strange, glowing spiral that pointed toward the shore.' ] },
+  { title: 'The House on the Cliff', paras: [
+    'The island was black and silent. A narrow path climbed from the beach to a house on the cliff, its windows dark, its roof sagging with rot. The air was cold, and a thin fog crept between the dead trees like something breathing.',
+    'Inside, dust lay over everything. Shadows gathered in the corners and did not move when she raised her lantern. On the wall someone had carved a single line, again and again, deeper each time: It is under the house. It is waiting.',
+    'A sense of dread settled over her, heavy as a grave. Somewhere below the floor, in the darkness, something shifted.' ] },
+  { title: 'Footsteps', paras: [
+    'Then she heard footsteps. “Who’s there?” she called. Nothing answered. The footsteps came again, slow at first, on the stairs beneath her, then faster. Mara ran! Her heart was pounding so hard she could barely breathe. She grabbed the door, slammed it shut behind her, and fumbled with the rusted lock as something hit the other side.',
+    'The wood cracked. She did not look back. She raced down the path toward the beach, slipping on the wet stones, the footsteps closing in behind her, gasping, desperate, until the boat was there and she shoved it into the surf and pulled the sail tight and escaped into the dark.' ] },
+  { title: 'Home', paras: [
+    'She reached Gull Point at dawn. The harbor was quiet and the water was still, and the first warm light touched the white tower as gently as it had every morning before.',
+    'Mara sat on the stone wall with the map folded in her lap. She did not know yet whether she would go back. For now she let the sun warm her face, listened to the gulls, and rested. “I’m home,” she whispered.' ] }
+] };
+
+const SAMPLE_KEY = 'sample-gull-point';
+function openSample() { pause(); loadBook(JSON.parse(JSON.stringify(SAMPLE)), SAMPLE_KEY); }
+
+/* ---------------- Library: books you've opened, kept in this browser ---------------- */
+const Library = (() => {
+  let dbp = null;
+  function db() {
+    if (!dbp) dbp = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open('undertone', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('books', { keyPath: 'key' });
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+    return dbp;
+  }
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('books', mode), st = t.objectStore('books'); const r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); };
+  return {
+    async put(b) { try { await tx('readwrite', st => st.put(b)); return true; } catch { return false; } },
+    async get(k) { try { return await tx('readonly', st => st.get(k)); } catch { return null; } },
+    async all() { try { return (await tx('readonly', st => st.getAll())) || []; } catch { return []; } },
+    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} }
+  };
+})();
+
+async function renderLibrary() {
+  const list = $('#libList'); list.textContent = '';
+  const books = (await Library.all()).sort((a, b) => (store.get('seen:' + b.key, b.added) - store.get('seen:' + a.key, a.added)));
+  const entries = [...books, { key: SAMPLE_KEY, title: SAMPLE.title, sample: true }];
+  for (const b of entries) {
+    const len = store.get('len:' + b.key, 0), pos = store.get('pos:' + b.key, 0);
+    const pct = len > 1 ? Math.round(pos / (len - 1) * 100) : 0;
+    const li = document.createElement('li'); li.className = 'lib-item' + (book && book.key === b.key ? ' current' : '');
+    const open = document.createElement('button'); open.className = 'lib-open'; open.type = 'button';
+    const t = document.createElement('b'); t.textContent = b.title;
+    const meta = document.createElement('small'); meta.textContent = (b.sample ? 'Sample story · ' : '') + (pos > 0 ? pct + '% read' : 'Not started');
+    const bar = document.createElement('i'); bar.style.setProperty('--p', pct + '%');
+    open.append(t, meta, bar);
+    open.addEventListener('click', () => openSaved(b.key));
+    li.appendChild(open);
+    if (!b.sample) {
+      const rm = document.createElement('button'); rm.className = 'lib-rm'; rm.type = 'button'; rm.textContent = 'Remove';
+      rm.setAttribute('aria-label', 'Remove ' + b.title + ' from library');
+      rm.addEventListener('click', async () => {
+        if (rm.dataset.confirm !== '1') { rm.dataset.confirm = '1'; rm.textContent = 'Tap again to remove'; return; }
+        await Library.remove(b.key);
+        if (book && book.key === b.key) openSample();
+        renderLibrary();
+      });
+      li.appendChild(rm);
+    }
+    list.appendChild(li);
+  }
+}
+async function openSaved(key) {
+  toggleLibrary(false);
+  if (book && book.key === key) return;
+  if (key === SAMPLE_KEY) { openSample(); return; }
+  busy('Opening…');
+  const b = await Library.get(key);
+  busy(null);
+  if (!b) { openSample(); return; }
+  pause();
+  loadBook({ title: b.title, sections: b.sections }, b.key);
+  store.set('seen:' + key, Date.now());
+  $('#notice').textContent = '';
+  const st = document.createElement('strong'); st.textContent = b.title;
+  $('#notice').append(st, ' picked up where you left off. Press play to keep going.');
+}
+function toggleLibrary(force) {
+  const p = $('#lib'), show = force ?? p.hidden;
+  p.hidden = !show; $('#libBtn').setAttribute('aria-expanded', String(show));
+  if (show) { renderLibrary(); scrollTo({ top: 0 }); }
+}
+$('#libBtn').addEventListener('click', () => toggleLibrary());
+
+// Start with the last book you were reading, at your last spot; otherwise the sample story.
+(async () => {
+  const last = store.get('last', SAMPLE_KEY);
+  if (last !== SAMPLE_KEY) {
+    const b = await Library.get(last);
+    if (b) { loadBook({ title: b.title, sections: b.sections }, b.key);
+      $('#notice').textContent = ''; const st = document.createElement('strong'); st.textContent = b.title;
+      $('#notice').append(st, ' picked up where you left off. Press play to keep going, or open Library for your other books.');
+      return; }
+  }
+  openSample();
+})();
+})();
+</script>
