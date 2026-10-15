@@ -2,45 +2,48 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400&family=Cinzel:wght@500;700&display=swap">
 <style>
-/* Layout: one reading column (~62ch) on a dim page, a fixed player dock at the bottom.
-   The page's one bold move: an ambient "aura" glow tinted by the music's current mood. */
-@property --mood { syntax: '<color>'; inherits: true; initial-value: #5fa88a; }
+/* Styled after the El Garush Lowahaat book: a black cover stamped in gold foil, then pages framed with a
+   double rule, a centered chapter heading, a stippled "Tablet" bar and bold verse numbers.
+   Dark = the foil cover (black and gold). Light = the printed page (paper, black rules, red accents).
+   The ambient glow behind the page is tinted by the music's current mood. */
+@property --mood { syntax: '<color>'; inherits: true; initial-value: #d6aa48; }
 :root {
   color-scheme: dark;
-  --bg: #0e1115;
-  --surface: #151a20;
-  --raised: #1c222a;
-  --fg: #e6e1d6;
-  --muted: #8f939a;
-  --line: #262d36;
-  --hl: rgba(255,255,255,.07);
-  --aura-strength: .2;
-  --mood: #5fa88a;
-  --f-read: 'Literata', Georgia, 'Times New Roman', serif;
-  --f-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --f-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
-  --read-size: 1.18rem;
+  --bg: #080706; --paper: #0f0d0a; --surface: #12100c; --raised: #1a1711;
+  --fg: #ece3cf; --muted: #a2977f; --line: #3a301d; --rule: #b8913d;
+  --gold: #d6aa48; --gold-hi: #f4d888; --gold-lo: #8a6420; --red: #c8372b;
+  --hl: rgba(214,170,72,.09); --aura-strength: .14;
+  --mood: #d6aa48;
+  --f-read: 'EB Garamond', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --f-cap: 'Cinzel', 'Trajan Pro', 'Iowan Old Style', Georgia, serif;
+  --read-size: 1.24rem;
   transition: --mood 3s ease;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #eceef1; --surface: #f7f8fa; --raised: #ffffff; --fg: #1b1f25; --muted: #5d636c;
-    --line: #d5d9df; --hl: rgba(0,0,0,.05); --aura-strength: .13;
+    --bg: #e4ddca; --paper: #fbf8ef; --surface: #f5f0e2; --raised: #ffffff;
+    --fg: #141210; --muted: #5b5446; --line: #cdc3ab; --rule: #141210;
+    --gold: #8f6a1d; --gold-hi: #b8892c; --gold-lo: #6d4f14; --red: #b3261e;
+    --hl: rgba(0,0,0,.05); --aura-strength: .1;
   }
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eceef1; --surface: #f7f8fa; --raised: #ffffff; --fg: #1b1f25; --muted: #5d636c;
-  --line: #d5d9df; --hl: rgba(0,0,0,.05); --aura-strength: .13;
+  --bg: #e4ddca; --paper: #fbf8ef; --surface: #f5f0e2; --raised: #ffffff;
+  --fg: #141210; --muted: #5b5446; --line: #cdc3ab; --rule: #141210;
+  --gold: #8f6a1d; --gold-hi: #b8892c; --gold-lo: #6d4f14; --red: #b3261e;
+  --hl: rgba(0,0,0,.05); --aura-strength: .1;
 }
 [hidden] { display: none !important; }
+:root[data-theme="light"] .brand .foil { background-image: linear-gradient(100deg, #5e430f, #9c7426 35%, #6d4f14 60%, #8f6a1d); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .brand .foil { background-image: linear-gradient(100deg, #5e430f, #9c7426 35%, #6d4f14 60%, #8f6a1d); } }
 html, body { min-height: 100%; }
 body {
-  background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 15px;
-  -webkit-tap-highlight-color: transparent;
+  background: var(--bg); color: var(--fg); font-family: var(--f-read); font-size: 16px;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
 }
 body::before {
   content: ""; position: fixed; inset: -20vh -20vw; z-index: 0; pointer-events: none;
@@ -49,12 +52,23 @@ body::before {
     radial-gradient(55vmax 40vmax at 100% 100%, color-mix(in srgb, var(--mood) calc(var(--aura-strength) * 80%), transparent), transparent 70%);
 }
 button, select, input { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--mood); outline-offset: 2px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+
+/* Gold foil: a metallic gradient clipped to the letters, with a slow sheen. */
+.foil {
+  background: linear-gradient(100deg, #7a561a 0%, #e9c46a 22%, #fff0b8 32%, #c99a3a 46%, #8a6420 62%, #f0d27c 80%, #9c7426 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: sheen 9s linear infinite;
+}
+@keyframes sheen { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.ankh { display: inline-block; width: .7em; height: 1em; background: currentColor; vertical-align: -.12em;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 20'%3E%3Cpath d='M7 1C4.6 1 3.2 3 3.2 5.2c0 1.7.9 3.3 2.2 4.6H1v2h5v7.2h2V11.8h5v-2H8.6c1.3-1.3 2.2-2.9 2.2-4.6C10.8 3 9.4 1 7 1zm0 2c1.2 0 1.9 1 1.9 2.3 0 1.4-.9 2.8-1.9 3.8-1-1-1.9-2.4-1.9-3.8C5.1 4 5.8 3 7 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 20'%3E%3Cpath d='M7 1C4.6 1 3.2 3 3.2 5.2c0 1.7.9 3.3 2.2 4.6H1v2h5v7.2h2V11.8h5v-2H8.6c1.3-1.3 2.2-2.9 2.2-4.6C10.8 3 9.4 1 7 1zm0 2c1.2 0 1.9 1 1.9 2.3 0 1.4-.9 2.8-1.9 3.8-1-1-1.9-2.4-1.9-3.8C5.1 4 5.8 3 7 3z'/%3E%3C/svg%3E") center / contain no-repeat; }
 
 /* Top bar */
 .top {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -64,61 +78,107 @@ button, select, input { font: inherit; color: inherit; }
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 220px; }
-.brand b { font-family: var(--f-read); font-weight: 600; font-size: 1.15rem; letter-spacing: .01em; }
-.brand span { color: var(--muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 220px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.brand b { font-family: var(--f-cap); font-weight: 700; font-size: 1.05rem; letter-spacing: .14em; }
+.brand span { color: var(--muted); font-style: italic; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .btn {
   display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface);
-  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: .85rem;
+  padding: 7px 12px; border-radius: 3px; cursor: pointer; font-family: var(--f-cap); font-weight: 700; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase;
 }
-.btn:hover { border-color: color-mix(in srgb, var(--mood) 60%, var(--line)); }
-.btn svg { width: 16px; height: 16px; }
+.btn:hover { border-color: var(--gold); }
+.btn svg { width: 15px; height: 15px; }
 select.chap {
-  max-width: 220px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .85rem;
+  max-width: 220px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 7px 10px; font-size: .9rem;
 }
 
-/* Reader */
+/* The page */
 main {
   position: relative; z-index: 1; max-width: 900px; margin: 0 auto;
-  padding-block: 28px 230px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 240px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
 }
 .notice {
-  max-width: 62ch; margin: 0 auto 22px; font-size: .85rem; color: var(--muted);
-  border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; line-height: 1.5;
+  max-width: 62ch; margin: 0 auto 18px; font-size: .98rem; font-style: italic; color: var(--muted); text-align: center;
+  border-block: 1px solid var(--line); padding: 10px 6px; line-height: 1.5;
 }
-.notice strong { color: var(--fg); }
-article { max-width: 62ch; margin: 0 auto; font-family: var(--f-read); font-size: var(--read-size); line-height: 1.75; }
-article h2 {
-  font-family: var(--f-read); font-weight: 600; font-size: 1.45rem; line-height: 1.25; text-wrap: balance;
-  margin: 2.2em 0 .7em; letter-spacing: -.005em;
+.notice strong { color: var(--fg); font-style: normal; }
+article {
+  max-width: 66ch; margin: 0 auto; font-family: var(--f-read); font-size: var(--read-size); line-height: 1.55;
+  background: var(--paper); border: 3px solid var(--rule);
+  box-shadow: inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule), 0 20px 50px -30px rgba(0,0,0,.6);
+  padding: 30px clamp(18px, 5vw, 44px) 36px;
 }
-article h2:first-child { margin-top: .4em; }
-article p {
-  margin: 0 0 1em; padding-left: 14px; border-left: 2px solid color-mix(in srgb, var(--pm, var(--line)) 45%, transparent);
-  hyphens: auto; overflow-wrap: break-word;
+.chap-head { text-align: center; margin: 2.6em 0 1.1em; }
+.chap-head:first-child { margin-top: .3em; }
+.chap-no { font-family: var(--f-cap); font-size: .82rem; letter-spacing: .28em; color: var(--muted); margin-bottom: .35em; }
+.chap-head h2 { font-family: var(--f-read); font-weight: 700; font-size: 1.5rem; line-height: 1.2; text-wrap: balance; margin: 0 0 .6em; }
+.tablet-bar {
+  position: relative; display: flex; justify-content: space-between; padding: 3px 6px; font-weight: 700; font-size: .92rem; line-height: 1.3;
+  border-block: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
 }
+.tablet-bar::before {
+  content: ""; position: absolute; inset: 0; opacity: .32; pointer-events: none;
+  background-image: radial-gradient(var(--fg) .7px, transparent .9px); background-size: 3px 3px;
+}
+.tablet-bar span { position: relative; }
+article p { margin: 0 0 .7em; text-align: justify; hyphens: auto; overflow-wrap: break-word; }
+.vn { font-weight: 700; margin-right: .3em; color: color-mix(in srgb, var(--pm, var(--fg)) 50%, var(--fg)); font-variant-numeric: lining-nums; }
 .shift {
-  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--muted); margin: 1.6em 0 .5em; display: flex; align-items: center; gap: 8px;
+  font-family: var(--f-cap); font-size: .66rem; letter-spacing: .22em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--c) 70%, var(--muted)); margin: 1.4em 0 .8em; display: flex; align-items: center; gap: 10px;
 }
-.shift i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
-.s { cursor: pointer; border-radius: 4px; transition: background .25s, color .25s; }
+.shift::before, .shift::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: .45; }
+.shift .ankh { color: var(--c); }
+.s { cursor: pointer; border-radius: 2px; transition: background .25s, color .25s; }
 .s:hover { background: var(--hl); }
 .s.now {
-  background: color-mix(in srgb, var(--mood) 24%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mood) 24%, transparent);
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent);
 }
-.endmark { text-align: center; color: var(--muted); font-family: var(--f-mono); font-size: .75rem; letter-spacing: .2em; margin-top: 3em; }
+.s.kept { text-decoration: underline 2px color-mix(in srgb, var(--red) 75%, transparent); text-underline-offset: 4px; text-decoration-skip-ink: none; }
+.dlg { font-style: italic; }
+
+/* A framed page of its own at the end of each section, like the book's proclamation pages. */
+.tablet-card {
+  margin: 2em auto 1.4em; max-width: 34ch; text-align: center; padding: 22px 20px 18px; cursor: pointer;
+  border: 3px solid var(--rule); box-shadow: inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule);
+}
+.tablet-card figcaption { font-weight: 700; font-size: .95rem; margin-bottom: .8em; }
+.tablet-card blockquote { margin: 0; font-weight: 700; font-size: 1.3rem; line-height: 1.32; text-wrap: balance; }
+.tablet-card .seal { display: block; margin: 14px auto 0; width: 52px; height: 52px; color: var(--red); }
+.tablet-card small { display: block; margin-top: 8px; font-family: var(--f-cap); font-size: .6rem; letter-spacing: .2em; color: var(--muted); }
+.endmark { text-align: center; color: var(--gold); font-family: var(--f-cap); font-size: .8rem; letter-spacing: .3em; margin-top: 2.4em; }
+
+/* Cover: always the black and gold of the book's cover */
+.cover {
+  position: fixed; inset: 0; z-index: 30; background: #050403; color: #e9c46a; display: grid; place-items: center; overflow: auto;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  background-image: radial-gradient(50vmax 40vmax at 50% 42%, rgba(214,170,72,.12), transparent 70%);
+}
+.cover-in { width: min(440px, 100%); text-align: center; display: grid; justify-items: center; gap: 14px; }
+.cover-kicker { margin: 0; font-family: var(--f-cap); font-size: .78rem; letter-spacing: .5em; padding-left: .5em; }
+.pylon { width: min(62vw, 250px); height: auto; filter: drop-shadow(0 0 18px rgba(214,170,72,.25)); }
+.cover h1 { margin: 6px 0 0; font-family: var(--f-cap); font-weight: 700; font-size: clamp(1.5rem, 7vw, 2.2rem); line-height: 1.15; letter-spacing: .06em; text-wrap: balance; }
+.cover-meta { margin: 0; font-family: var(--f-read); font-style: italic; font-size: 1.05rem; color: #b9a678; }
+.cover-meter { width: 70%; height: 2px; background: rgba(214,170,72,.2); position: relative; }
+.cover-meter i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: #e9c46a; }
+.cover-go {
+  margin-top: 10px; border: 0; cursor: pointer; padding: 14px 30px; border-radius: 2px; color: #120d04;
+  font-family: var(--f-cap); font-weight: 700; font-size: .85rem; letter-spacing: .2em;
+  background: linear-gradient(100deg, #8a6420, #f4d888 40%, #c99a3a 60%, #e9c46a);
+  box-shadow: 0 0 0 1px #050403, 0 0 0 2px #b8913d;
+}
+.cover-alt { background: none; border: 0; color: #b9a678; font-family: var(--f-cap); font-size: .72rem; letter-spacing: .2em; cursor: pointer; padding: 8px; }
+.cover-line { margin: 4px 0 0; max-width: 32ch; font-style: italic; color: #9f8f68; font-size: .98rem; line-height: 1.45; }
 
 /* Player dock */
 .dock {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-top: 1px solid var(--line);
+  border-top: 3px double var(--rule);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .dock-in {
@@ -128,83 +188,94 @@ article p {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 .map-wrap { display: grid; gap: 4px; }
-.map-row { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: .68rem; color: var(--muted); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
-#map { width: 100%; height: 14px; display: block; border-radius: 4px; cursor: pointer; }
-.ctrl { display: flex; align-items: center; gap: 12px; }
-.mood {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px;
-}
-.mood-dot { width: 34px; height: 34px; flex: none; border-radius: 50%; position: relative; background: color-mix(in srgb, var(--mood) 25%, transparent); }
+.map-row { display: flex; justify-content: space-between; gap: 10px; font-size: .86rem; color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
+.map-row #secName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-style: italic; }
+.map-row #pct { font-weight: 700; color: var(--fg); white-space: nowrap; }
+#map { width: 100%; height: 12px; display: block; border-radius: 1px; cursor: pointer; }
+.ctrl { display: flex; align-items: center; gap: 10px; }
+.mood { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.mood-dot { width: 34px; height: 34px; flex: none; border-radius: 50%; position: relative; background: color-mix(in srgb, var(--mood) 22%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--mood) 50%, transparent); }
 .mood-dot canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; }
 .mood-txt { min-width: 0; line-height: 1.25; }
-.mood-txt b { display: block; font-size: .92rem; }
-.mood-txt small { display: block; color: var(--muted); font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.transport { display: flex; align-items: center; gap: 6px; flex: none; }
-.ib {
-  width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; cursor: pointer;
-}
+.mood-txt b { display: block; font-family: var(--f-cap); font-size: .74rem; letter-spacing: .14em; text-transform: uppercase; }
+.mood-txt small { display: block; color: var(--muted); font-style: italic; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.transport { display: flex; align-items: center; gap: 4px; flex: none; }
+.ib { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent; cursor: pointer; }
 .ib:hover { background: var(--hl); }
 .ib svg { width: 20px; height: 20px; }
-.play {
-  width: 54px; height: 54px; background: var(--fg); color: var(--bg);
-}
-.play:hover { background: var(--fg); transform: scale(1.04); }
+.play { width: 54px; height: 54px; color: #120d04; background: linear-gradient(135deg, #f4d888, #c99a3a 55%, #8a6420); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--rule); }
+.play:hover { background: linear-gradient(135deg, #f4d888, #c99a3a 55%, #8a6420); transform: scale(1.04); }
 .play svg { width: 24px; height: 24px; }
 .ib[aria-expanded="true"] { background: var(--hl); }
+#keep .ankh { width: 13px; height: 19px; }
+#keep[aria-pressed="true"] { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 
 .panel {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 20px;
-  border-top: 1px solid var(--line); padding-top: 12px;
+  border-top: 1px solid var(--line); padding-top: 12px; max-height: 46vh; overflow: auto;
 }
 .field { display: grid; gap: 6px; min-width: 0; }
-.field label, .field .lbl { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
-.field output { font-family: var(--f-mono); letter-spacing: 0; text-transform: none; color: var(--fg); font-weight: 500; }
+.field label, .field .lbl { font-family: var(--f-cap); font-size: .64rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.field output { font-family: var(--f-read); letter-spacing: 0; text-transform: none; color: var(--fg); font-weight: 700; font-size: .9rem; }
 .voice-row { display: flex; gap: 8px; }
 .voice-row select { flex: 1 1 auto; min-width: 0; }
 .voice-row .btn { flex: none; }
-.dlg { color: color-mix(in srgb, var(--fg) 82%, var(--mood)); font-style: italic; }
-.tip { margin: 0; font-size: .78rem; line-height: 1.45; color: var(--muted); }
-.field select { width: 100%; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .88rem; }
-input[type=range] { width: 100%; accent-color: var(--mood); }
-.field label.check { display: flex; justify-content: flex-start; gap: 8px; align-items: center; font-size: .88rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); cursor: pointer; }
-.check input { accent-color: var(--mood); width: 18px; height: 18px; }
+.tip { margin: 0; font-size: .88rem; line-height: 1.45; color: var(--muted); }
+.field select { width: 100%; background: var(--raised); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; font-size: .95rem; }
+input[type=range] { width: 100%; accent-color: var(--gold); }
+.field label.check { display: flex; justify-content: flex-start; gap: 8px; align-items: center; font-family: var(--f-read); font-size: .98rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg); cursor: pointer; }
+.check input { accent-color: var(--gold); width: 18px; height: 18px; }
 
 /* Loading overlay */
 .loading {
-  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 75%, transparent);
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 75%, transparent);
   backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.lib { max-width: 62ch; margin: 0 auto 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
-.lib h3 { margin: 0; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.loading div { background: var(--raised); border: 3px solid var(--rule); box-shadow: inset 0 0 0 3px var(--raised), inset 0 0 0 4px var(--rule); padding: 18px 24px; max-width: 360px; text-align: center; line-height: 1.5; font-style: italic; }
+
+/* Library */
+.lib { max-width: 66ch; margin: 0 auto 22px; background: var(--paper); border: 3px solid var(--rule); box-shadow: inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule); padding: 18px 20px; display: grid; gap: 10px; }
+.lib h3 { margin: 0; font-family: var(--f-cap); font-size: .7rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); text-align: center; }
+.lib h3 + * { margin-top: 2px; }
 .lib ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .lib-item { display: flex; align-items: stretch; gap: 8px; }
-.lib-open { flex: 1 1 auto; min-width: 0; text-align: left; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; display: grid; gap: 3px; position: relative; overflow: hidden; }
-.lib-item.current .lib-open { border-color: var(--mood); }
-.lib-open b { font-family: var(--f-read); font-weight: 600; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lib-open small { color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
-.lib-open i { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--mood); }
-.lib-rm { flex: none; background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font-size: .8rem; color: var(--muted); cursor: pointer; }
-.lib-rm[data-confirm="1"] { color: var(--fg); border-color: #b4443f; }
-.loading div { background: var(--raised); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; max-width: 360px; text-align: center; line-height: 1.5; }
-.drop { outline: 2px dashed var(--mood); outline-offset: -10px; }
+.lib-open { flex: 1 1 auto; min-width: 0; text-align: left; background: var(--raised); border: 1px solid var(--line); border-radius: 2px; padding: 10px 12px; cursor: pointer; display: grid; gap: 3px; position: relative; overflow: hidden; }
+.lib-item.current .lib-open { border-color: var(--gold); }
+.lib-open b { font-family: var(--f-read); font-weight: 700; font-size: 1.08rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-open small { color: var(--muted); font-size: .88rem; font-style: italic; font-variant-numeric: tabular-nums; }
+.lib-open i { position: absolute; left: 0; bottom: 0; height: 3px; width: var(--p); background: var(--gold); }
+.lib-rm { flex: none; background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 0 12px; font-size: .88rem; color: var(--muted); cursor: pointer; }
+.lib-rm[data-confirm="1"] { color: var(--fg); border-color: var(--red); }
+.kept-line { text-align: left; background: none; border: 0; border-left: 2px solid var(--red); padding: 4px 0 4px 12px; cursor: pointer; font-size: 1.02rem; line-height: 1.4; }
+.kept-line small { display: block; font-weight: 700; font-size: .82rem; color: var(--muted); }
+.drop { outline: 2px dashed var(--gold); outline-offset: -10px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 10px); z-index: 25; opacity: 0; pointer-events: none;
+  background: var(--raised); border: 1px solid var(--rule); padding: 8px 16px; font-family: var(--f-cap); font-size: .7rem; letter-spacing: .16em; transition: opacity .25s, transform .25s; white-space: nowrap;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 520px) {
   .brand span { display: none; }
-  select.chap { max-width: 150px; }
-  .ib.skip { width: 36px; }
+  select.chap { max-width: 130px; }
+  .btn .lbl-long { display: none; }
+  .ib.skip { width: 34px; }
   .mood-txt small { display: none; }
-  :root { --read-size: 1.1rem; }
+  :root { --read-size: 1.14rem; }
+  article { padding-inline: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   :root { transition: none; }
   .s { transition: none; }
+  .foil { animation: none; }
 }
 </style>
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><b>Undertone</b><span id="bookTitle">The Keeper of Gull Point</span></div>
+    <button class="brand" id="brand" type="button" aria-label="Show the cover"><b class="foil">Undertone</b><span id="bookTitle">The Keeper of Gull Point</span></button>
     <div class="top-actions">
       <select class="chap" id="chap" aria-label="Jump to section"></select>
       <button class="btn" id="libBtn" type="button" aria-expanded="false" aria-controls="lib">
@@ -213,7 +284,7 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
       </button>
       <label class="btn" for="file">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6.5A2.5 2.5 0 0 0 4 21.5 2.5 2.5 0 0 0 6.5 24"/><path d="M12 7v6M9 10h6"/></svg>
-        Open book
+        Open<span class="lbl-long">&nbsp;book</span>
       </label>
       <input type="file" id="file" accept=".pdf,.epub,.txt,.md,application/pdf,application/epub+zip,text/plain" hidden>
     </div>
@@ -225,6 +296,8 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
     <h3>Your library</h3>
     <ul id="libList"></ul>
     <p class="tip">Books are saved on this device, in this browser, and reopen where you stopped.</p>
+    <h3 id="keptHead" hidden>Lines you kept</h3>
+    <div id="keptList" style="display:grid;gap:8px"></div>
   </section>
   <p class="notice" id="notice"><strong>Sample story loaded.</strong> Press play to hear it read aloud with music that follows the mood. Open your own PDF, EPUB or text file with <strong>Open book</strong>, or drop it on the page. Tap any sentence to read from there.</p>
   <article id="text" aria-live="off"></article>
@@ -245,6 +318,7 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
         <button class="ib skip" id="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
         <button class="ib play" id="play" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
         <button class="ib skip" id="next" aria-label="Next sentence"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+        <button class="ib" id="keep" aria-label="Keep this line" aria-pressed="false"><i class="ankh"></i></button>
         <button class="ib" id="setBtn" aria-label="Settings" aria-expanded="false" aria-controls="panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
       </div>
     </div>
@@ -254,13 +328,6 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
         <div class="voice-row"><select id="voice"></select><button class="btn" id="testVoice" type="button">Hear it</button></div>
         <p class="tip" id="voiceTip" hidden>Your device has no high-quality voice installed. On iPhone go to Settings › Accessibility › Spoken Content › Voices and download an Enhanced or Premium voice. On Android, install the Google voices in Text-to-speech settings. Then reopen this page.</p>
         <p class="tip" id="nativeStatus" hidden></p>
-      </div>
-      <div class="field" id="outField" hidden><label for="voiceOut">Voice output</label>
-        <select id="voiceOut">
-          <option value="app">With the music (CarPlay, Bluetooth)</option>
-          <option value="system">iPhone speech system</option>
-        </select>
-        <p class="tip">If you can't hear the voice, try the other option.</p>
       </div>
       <div class="field"><label for="dvoice">Character voice</label><select id="dvoice"></select>
         <p class="tip">Used for anything inside quotation marks.</p>
@@ -291,6 +358,27 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
 
 <audio id="out" playsinline hidden></audio>
 <div class="loading" id="loading" hidden><div id="loadingMsg">Opening…</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<section class="cover" id="cover" hidden aria-label="Book cover">
+  <div class="cover-in">
+    <p class="cover-kicker foil">UNDERTONE</p>
+    <svg class="pylon" viewBox="0 0 200 210" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linejoin="round" aria-hidden="true">
+      <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4d888"/><stop offset=".45" stop-color="#c99a3a"/><stop offset=".7" stop-color="#8a6420"/><stop offset="1" stop-color="#e9c46a"/></linearGradient></defs>
+      <path d="M22 18h156l-14 20H36z"/><path d="M42 38h116l14 138H28z"/><path d="M22 176h156v16H22z"/>
+      <path d="M62 38l-9 138M138 38l9 138" stroke-width="2"/><path d="M58 70h-9M142 70h9M56 100h-10M144 100h10M54 130h-11M146 130h11" stroke-width="2"/>
+      <g stroke-width="2"><path d="M65.2 86.7L51.7 83.1"/><path d="M68.8 78.0L56.7 71.0"/><path d="M74.5 70.5L64.6 60.6"/><path d="M82.0 64.8L75.0 52.7"/><path d="M90.7 61.2L87.1 47.7"/><path d="M100.0 60.0L100.0 46.0"/><path d="M109.3 61.2L112.9 47.7"/><path d="M118.0 64.8L125.0 52.7"/><path d="M125.5 70.5L135.4 60.6"/><path d="M131.2 78.0L143.3 71.0"/><path d="M134.8 86.7L148.3 83.1"/></g>
+      <path d="M68 96a32 32 0 0 1 64 0" stroke-width="2"/>
+      <ellipse cx="100" cy="92" rx="11" ry="15" stroke-width="5"/><path d="M100 107v58M80 118h40" stroke-width="6" stroke-linecap="round"/>
+      <path d="M60 150h80" stroke-width="2"/><path d="M34 184h132" stroke-width="1.5" stroke-dasharray="3 5"/>
+    </svg>
+    <h1 class="foil" id="coverTitle"></h1>
+    <p class="cover-meta" id="coverMeta"></p>
+    <div class="cover-meter"><i id="coverBar"></i></div>
+    <p class="cover-line" id="coverLine" hidden></p>
+    <button class="cover-go" id="coverGo" type="button">BEGIN READING</button>
+    <button class="cover-alt" id="coverLib" type="button">LIBRARY &amp; OTHER BOOKS</button>
+  </div>
+</section>
 
 <script>
 (() => {
@@ -417,40 +505,128 @@ function loadBook(b, key) {
   document.title = 'Undertone Reader';
   setCurrent(idx, true);
   drawMap();
+  showCover();
 }
 
+// Chapter headings read like the book: "CHAPTER ONE", the title, then a stippled bar giving the tablet range.
+const NUMS = 'One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen Sixteen Seventeen Eighteen Nineteen Twenty'.split(' ');
+const chapWord = n => (NUMS[n - 1] || String(n)).toUpperCase();
+const ANKH = () => { const i = document.createElement('i'); i.className = 'ankh'; i.setAttribute('aria-hidden', 'true'); return i; };
+const SEAL = '<svg class="seal" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a17 17 0 1 0 28 0" stroke-width="3"/><path d="M24 7l11 19H13zM24 33L13 14h22z"/><ellipse cx="24" cy="17.5" rx="2.6" ry="3.4"/><path d="M24 21v9M20.5 23.5h7"/></svg>';
+let kept = new Set();
+// The line a section is remembered by: one you kept, or else the most vivid sentence of a readable length.
+function keyLine(first, last) {
+  for (let i = first; i <= last; i++) if (kept.has(i)) return i;
+  let best = -1, score = -1;
+  for (let i = first; i <= last; i++) {
+    const t = sentences[i].text, len = t.length;
+    if (len < 45 || len > 170 || /^\W/.test(t)) continue;
+    let sc = scoreText(t).sc[sentences[i].mood] * 2 + (len > 70 && len < 140 ? 1 : 0) + (/[!?]$/.test(t) ? .5 : 0);
+    if (sc > score) { score = sc; best = i; }
+  }
+  return best;
+}
+function tabletCard(si, first, last) {
+  const k = keyLine(first, last); if (k < 0) return null;
+  const f = document.createElement('figure'); f.className = 'tablet-card'; f.dataset.i = k; f.dataset.si = si;
+  const cap = document.createElement('figcaption'); cap.textContent = '~ ' + book.sections[si].title + ' ~';
+  const q = document.createElement('blockquote'); q.textContent = sentences[k].text.replace(/^["“'‘]+|["”'’]+$/g, '');
+  const sm = document.createElement('small'); sm.textContent = (kept.has(k) ? 'KEPT · ' : '') + 'TABLET ' + (si + 1) + ':' + sentences[k].vn;
+  f.append(cap, q); f.insertAdjacentHTML('beforeend', SEAL); f.append(sm);
+  return f;
+}
 function render() {
   const art = $('#text'); art.textContent = '';
   const frag = document.createDocumentFragment();
   const chap = $('#chap'); chap.textContent = '';
   sentences = [];
+  kept = new Set(store.get('kept:' + book.key, []));
   let prevMood = null;
   book.sections.forEach((sec, si) => {
     sec.first = sentences.length;
-    const h = document.createElement('h2'); h.textContent = sec.title; h.id = 'sec' + si; frag.appendChild(h);
-    const o = document.createElement('option'); o.value = si; o.textContent = sec.title; chap.appendChild(o);
-    sec.paras.forEach(p => {
+    const head = document.createElement('header'); head.className = 'chap-head';
+    const no = document.createElement('div'); no.className = 'chap-no'; no.textContent = 'CHAPTER ' + chapWord(si + 1);
+    const h = document.createElement('h2'); h.textContent = sec.title; h.id = 'sec' + si;
+    const bar = document.createElement('div'); bar.className = 'tablet-bar';
+    const l = document.createElement('span'); l.textContent = 'Tablet ' + (si + 1) + ':1';
+    const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + sec.paras.length;
+    bar.append(l, r); head.append(no, h, bar); frag.appendChild(head);
+    const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; chap.appendChild(o);
+    sec.paras.forEach((p, pi) => {
       if (p.mood !== prevMood) {
         const d = document.createElement('div'); d.className = 'shift'; d.style.setProperty('--c', MOODS[p.mood].color);
-        d.innerHTML = '<i></i>'; d.append('Music turns ' + MOODS[p.mood].label.toLowerCase()); frag.appendChild(d); prevMood = p.mood;
+        d.append(ANKH(), ' The music turns ' + MOODS[p.mood].label.toLowerCase() + ' ', ANKH()); frag.appendChild(d); prevMood = p.mood;
       }
       const el = document.createElement('p'); el.style.setProperty('--pm', MOODS[p.mood].color);
+      const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = pi + 1; el.appendChild(vn);
       const parts = splitSentences(p.text);
       let inQuote = false;
       parts.forEach((s, k) => {
         const sp = document.createElement('span'); sp.className = 's'; sp.dataset.i = sentences.length;
+        if (kept.has(sentences.length)) sp.classList.add('kept');
         const r = segment(s, inQuote); inQuote = r.inQuote;
         for (const g of r.segs) { if (g.dialog) { const q = document.createElement('span'); q.className = 'dlg'; q.textContent = g.text; sp.appendChild(q); } else sp.append(g.text); }
         el.appendChild(sp); if (k) el.insertBefore(document.createTextNode(' '), sp);
-        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
+        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, vn: pi + 1, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
       });
       frag.appendChild(el);
     });
+    if (sentences.length - sec.first >= 8) { const c = tabletCard(si, sec.first, sentences.length - 1); if (c) frag.appendChild(c); }
   });
   book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
-  const end = document.createElement('div'); end.className = 'endmark'; end.textContent = '— END —'; frag.appendChild(end);
+  const end = document.createElement('div'); end.className = 'endmark'; end.append(ANKH(), '  THE END  ', ANKH()); frag.appendChild(end);
   art.appendChild(frag);
 }
+
+/* ---------------- Keeping lines ---------------- */
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800);
+}
+function toggleKeep(i) {
+  const s = sentences[i]; if (!s) return;
+  if (kept.has(i)) { kept.delete(i); s.el.classList.remove('kept'); toast('Let go'); }
+  else { kept.add(i); s.el.classList.add('kept'); toast('Kept · Tablet ' + (s.si + 1) + ':' + s.vn); }
+  store.set('kept:' + book.key, [...kept].sort((a, b) => a - b));
+  syncKeep();
+  // The section's closing card shows the line you kept.
+  const old = $('#text').querySelector('.tablet-card[data-si="' + s.si + '"]'), sec = book.sections[s.si];
+  if (old) { const last = (book.sections[s.si + 1]?.first ?? sentences.length) - 1, c = tabletCard(s.si, sec.first, last); if (c) old.replaceWith(c); }
+}
+function syncKeep() { $('#keep').setAttribute('aria-pressed', String(kept.has(idx))); }
+$('#keep').addEventListener('click', () => toggleKeep(idx));
+$('#text').addEventListener('dblclick', e => { const sp = e.target.closest('.s'); if (sp) { e.preventDefault(); toggleKeep(+sp.dataset.i); } });
+function renderKept() {
+  const list = $('#keptList'); list.textContent = '';
+  const ks = [...kept].filter(i => sentences[i]);
+  $('#keptHead').hidden = !ks.length;
+  for (const i of ks) {
+    const s = sentences[i], b = document.createElement('button'); b.type = 'button'; b.className = 'kept-line';
+    const sm = document.createElement('small'); sm.textContent = 'Tablet ' + (s.si + 1) + ':' + s.vn;
+    b.append(sm, s.text);
+    b.addEventListener('click', () => { toggleLibrary(false); seek(i, true); });
+    list.appendChild(b);
+  }
+}
+
+/* ---------------- Cover ---------------- */
+function showCover() {
+  if (!book) return;
+  $('#coverTitle').textContent = book.title;
+  const s = sentences[idx], pct = Math.round(idx / Math.max(1, sentences.length - 1) * 100);
+  $('#coverMeta').textContent = idx > 0 && s ? 'Tablet ' + (s.si + 1) + ':' + s.vn + ' · ' + pct + '% read' : book.sections.length + (book.sections.length === 1 ? ' chapter' : ' chapters') + ' · read aloud with music';
+  $('#coverBar').style.setProperty('--p', pct + '%');
+  const k = [...kept].pop(), line = $('#coverLine');
+  line.hidden = k == null || !sentences[k];
+  if (!line.hidden) line.textContent = '“' + sentences[k].text.replace(/^["“]+|["”]+$/g, '') + '”';
+  $('#coverGo').textContent = idx > 0 ? 'CONTINUE READING' : 'BEGIN READING';
+  $('#cover').hidden = false;
+}
+function hideCover() { $('#cover').hidden = true; }
+$('#coverGo').addEventListener('click', () => { hideCover(); if (!playing) play(); });
+$('#coverLib').addEventListener('click', () => { hideCover(); toggleLibrary(true); });
+$('#brand').addEventListener('click', showCover);
+$('#text').addEventListener('click', e => { const c = e.target.closest('.tablet-card'); if (c) seek(+c.dataset.i, true); });
 
 /* ---------------- Mood display + map ---------------- */
 let moodMode = store.get('moodMode', 'auto');
@@ -504,7 +680,8 @@ function setCurrent(i, forceScroll) {
     if (forceScroll || r.top < vh * 0.18 || r.bottom > vh * 0.62) curEl.scrollIntoView({ block: 'center', behavior: reduced || forceScroll ? 'auto' : 'smooth' });
   }
   $('#secName').textContent = book.sections[s.si].title;
-  $('#pct').textContent = Math.round(i / Math.max(1, sentences.length - 1) * 100) + '%';
+  $('#pct').textContent = 'Tablet ' + (s.si + 1) + ':' + s.vn + ' · ' + Math.round(i / Math.max(1, sentences.length - 1) * 100) + '%';
+  syncKeep();
   $('#chap').value = s.si;
   showMood(i); drawMap(); updateNowPlaying();
   store.set('pos:' + book.key, i);
@@ -722,10 +899,9 @@ function updateNowPlaying() {
 /* ---------------- Settings ---------------- */
 if (window.__UNDERTONE_NATIVE) {
   $('#carTip').hidden = true; // the iPhone app routes all sound to the car itself
-  $('#outField').hidden = false;
-  const vo = $('#voiceOut');
-  vo.value = window.__undertoneOutput = store.get('voiceOut', 'app');
-  vo.addEventListener('change', () => { window.__undertoneOutput = vo.value; store.set('voiceOut', vo.value); if (playing) speakCurrent(); else testVoice(); });
+  // The narrator always speaks through the app's own audio, next to the music, so both reach CarPlay.
+  // (An earlier "iPhone speech system" option kept the voice on the phone; it's gone.)
+  window.__undertoneOutput = 'app'; store.set('voiceOut', 'app');
   // The app reports what its speech engine is doing, so problems are visible on the phone.
   window.__nativeStatus = msg => { const el = $('#nativeStatus'); el.hidden = false; el.textContent = 'Voice engine: ' + msg; };
 }
@@ -1215,7 +1391,7 @@ async function openSaved(key) {
 function toggleLibrary(force) {
   const p = $('#lib'), show = force ?? p.hidden;
   p.hidden = !show; $('#libBtn').setAttribute('aria-expanded', String(show));
-  if (show) { renderLibrary(); scrollTo({ top: 0 }); }
+  if (show) { renderLibrary(); renderKept(); scrollTo({ top: 0 }); }
 }
 $('#libBtn').addEventListener('click', () => toggleLibrary());
 

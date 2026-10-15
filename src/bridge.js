@@ -23,7 +23,7 @@ export const BRIDGE_JS = `
       var id = ++seq; pending[id] = u; count++; synth.speaking = true;
       post({ type: 'speak', id: id, text: u.text, voice: u.voice ? u.voice.voiceURI : null,
              lang: u.voice ? u.voice.lang : (u.lang || null), rate: u.rate, pitch: u.pitch, volume: u.volume,
-             session: window.__undertoneOutput || 'app' });
+             session: 'app' });
     },
     cancel: function () {
       pending = {}; count = 0; synth.speaking = false;

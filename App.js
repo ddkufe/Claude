@@ -85,17 +85,19 @@ export default function App() {
       const token = stopToken.current; // a later 'stop' makes this sentence stale
       try { await setIsAudioActiveAsync(true); } catch {}
       if (stopToken.current !== token) return;
-      const speakWith = (voice, retried, session = m.session) => {
+      const speakWith = (voice, retried) => {
         let started = false;
-        // If iPhone doesn't start speaking within a few seconds, the app's audio session is stuck:
-        // stop and say the sentence through the iPhone speech system instead, so the narrator is never silent.
-        // (That route can pause the music, so it's only a last resort.)
-        const guard = session !== 'system' ? setTimeout(() => {
-          if (started || stopToken.current !== token) return;
-          Speech.stop();
-          call('status', 'switched to the iPhone speech system for this sentence');
-          speakWith(voice, retried, 'system');
-        }, 4000) : null;
+        // Always speak in the app's own audio session, the same one the music plays in, so the voice
+        // follows CarPlay and Bluetooth with it. Never fall back to the iPhone speech system: that one
+        // plays on the phone's speaker even when the car is connected.
+        const slow = setTimeout(() => { if (!started && stopToken.current === token) call('status', 'waiting for the voice to start…'); }, 4000);
+        const fail = (err) => {
+          clearTimeout(slow);
+          // A voice that's been removed or isn't allowed fails here; fall back to the default voice once.
+          if (voice && !retried) { speakWith(null, true); return; }
+          call('status', `error: ${err?.message || err}`);
+          call('error', m.id, String(err?.message || err));
+        };
         try {
           Speech.speak(m.text, {
             voice: voice || undefined,
@@ -103,23 +105,12 @@ export default function App() {
             rate: m.rate ?? 1,
             pitch: m.pitch ?? 1,
             volume: m.volume ?? 1,
-            useApplicationAudioSession: session !== 'system',
-            onStart: () => { started = true; clearTimeout(guard); call('status', `speaking (${session === 'system' ? 'iPhone speech system' : 'with the music'})`); },
-            onDone: () => { clearTimeout(guard); if (stopToken.current === token) call('done', m.id); },
-            onError: (err) => {
-              clearTimeout(guard);
-              // A voice that's been removed or isn't allowed fails here; fall back to the default voice once.
-              if (voice && !retried) { speakWith(null, true); return; }
-              call('status', `error: ${err?.message || err}`);
-              call('error', m.id, String(err?.message || err));
-            },
+            useApplicationAudioSession: true,
+            onStart: () => { started = true; clearTimeout(slow); call('status', 'speaking with the music'); },
+            onDone: () => { clearTimeout(slow); if (stopToken.current === token) call('done', m.id); },
+            onError: fail,
           });
-        } catch (err) {
-          clearTimeout(guard);
-          if (voice && !retried) { speakWith(null, true); return; }
-          call('status', `error: ${err?.message || err}`);
-          call('error', m.id, String(err?.message || err));
-        }
+        } catch (err) { fail(err); }
       };
       speakWith(m.voice, false);
     } else if (m.type === 'stop') {
