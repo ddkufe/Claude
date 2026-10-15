@@ -8,15 +8,13 @@ import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { READER_HTML } from './src/readerHtml';
 import { BRIDGE_JS } from './src/bridge';
+import { createMusic } from './src/music';
 
 // Play like a music or audiobook app: ignore the silent switch, keep going in the background,
 // and follow the phone's audio output (CarPlay, Bluetooth, AirPlay) for both the voice and the music.
-// Re-applied before every sentence: the web view's music can change or switch off the shared audio
-// session (for example after a pause), and the narrator would then be silent.
-function startAudioSession() {
-  return configureAudio();
-}
-async function configureAudio() {
+// The voice (expo-speech) and the music (expo-audio players) both live in this one session; the web view
+// makes no sound at all, so nothing else can take the session over.
+async function startAudioSession() {
   try {
     await setAudioModeAsync({
       playsInSilentMode: true,
@@ -46,6 +44,7 @@ export default function App() {
   const web = useRef(null);
   const stopToken = useRef(0);
   const dark = useColorScheme() === 'dark';
+  const music = useRef(null);
 
   useEffect(() => { startAudioSession(); }, []);
 
@@ -54,11 +53,25 @@ export default function App() {
     web.current?.injectJavaScript(js);
   }, []);
 
+  if (!music.current) {
+    music.current = createMusic({
+      requestRender: (mood) => web.current?.injectJavaScript(`window.__undertoneRenderMusic && window.__undertoneRenderMusic(${JSON.stringify(mood)}); true;`),
+      status: (msg) => call('status', msg),
+    });
+  }
+
   const onMessage = useCallback(async (event) => {
     let m;
     try { m = JSON.parse(event.nativeEvent.data); } catch { return; }
 
-    if (m.type === 'voices') {
+    if (m.type === 'music') {
+      const mu = music.current;
+      if (m.op === 'start') { await startAudioSession(); mu.start(m.vol); }
+      else if (m.op === 'pause') mu.pause();
+      else if (m.op === 'volume') mu.volume(m.vol);
+      else if (m.op === 'mood') mu.mood(m.mood);
+      else if (m.op === 'data') mu.data(m.mood, m.data);
+    } else if (m.type === 'voices') {
       try {
         const list = await Speech.getAvailableVoicesAsync();
         call('voices', list.map(v => ({
@@ -70,19 +83,19 @@ export default function App() {
       }
     } else if (m.type === 'speak') {
       const token = stopToken.current; // a later 'stop' makes this sentence stale
-      const sessionError = await startAudioSession();
+      try { await setIsAudioActiveAsync(true); } catch {}
       if (stopToken.current !== token) return;
-      if (sessionError) call('status', `audio setup failed (${sessionError})`);
       const speakWith = (voice, retried, session = m.session) => {
         let started = false;
         // If iPhone doesn't start speaking within a few seconds, the app's audio session is stuck:
         // stop and say the sentence through the iPhone speech system instead, so the narrator is never silent.
+        // (That route can pause the music, so it's only a last resort.)
         const guard = session !== 'system' ? setTimeout(() => {
           if (started || stopToken.current !== token) return;
           Speech.stop();
           call('status', 'switched to the iPhone speech system for this sentence');
           speakWith(voice, retried, 'system');
-        }, 2500) : null;
+        }, 4000) : null;
         try {
           Speech.speak(m.text, {
             voice: voice || undefined,
