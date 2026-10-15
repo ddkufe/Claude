@@ -44,9 +44,9 @@ jobs:
 
       - name: Link for Expo Go
         run: |
-          OWNER=$(npx --yes eas-cli@24 whoami | head -1)
-          GROUP=$(node -e "const u=require('./update.json');console.log((Array.isArray(u)?u[0]:u).group)")
-          URL="https://expo.dev/accounts/$OWNER/projects/undertone/updates/$GROUP"
-          echo "Open on your iPhone and tap Preview, or sign in to Expo Go with the same account: $URL"
+          ID=$(node -e "const u=require('./update.json');console.log((Array.isArray(u)?u[0]:u).id)")
+          URL="exp://u.expo.dev/update/$ID"
+          echo "Open in Expo Go on your iPhone: $URL"
           echo "### Open in Expo Go" >> "$GITHUB_STEP_SUMMARY"
-          echo "Open this on your iPhone: $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Copy this into Safari on your iPhone: \`$URL\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Or open Expo Go signed in to your Expo account: Projects › undertone › preview." >> "$GITHUB_STEP_SUMMARY"
