@@ -158,6 +158,9 @@ export default function App() {
           source={{ html: READER_HTML, baseUrl: 'https://undertone.app/' }}
           injectedJavaScriptBeforeContentLoaded={BRIDGE_JS}
           onMessage={onMessage}
+          // If iPhone stops the page to free memory (for example while importing a very long book), bring it back;
+          // the import was saved as it went and continues when the same file is opened again.
+          onContentProcessDidTerminate={() => web.current?.reload()}
           javaScriptEnabled
           domStorageEnabled
           allowsInlineMediaPlayback

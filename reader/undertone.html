@@ -1236,8 +1236,11 @@ function busy(msg) { const l = $('#loading'); if (msg) { $('#loadingMsg').textCo
 /* ---------------- Pictures, and the words inside them ---------------- */
 // Words that are part of a picture (or a whole scanned page) are read with Tesseract, which runs on the phone.
 // Only lines it reads confidently are kept, so decorative lettering doesn't turn into gibberish.
+// The phone has little memory to spare for a long book: the reader is restarted every few pictures (it grows
+// as it works), gives up on a picture that takes too long, and every canvas is emptied once used.
+const drop = c => { if (c) { c.width = 0; c.height = 0; } };
 const OCR = (() => {
-  let w = null;
+  let w = null, uses = 0;
   function worker() {
     if (!w) w = (async () => {
       await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
@@ -1246,22 +1249,29 @@ const OCR = (() => {
     return w;
   }
   return {
-    async read(canvas) {
+    async read(canvas, limitMs = 15000) {
+      if (uses >= 8) await this.close();
       const wk = await worker(); if (!wk) return null;
+      uses++;
+      const img = prepare(canvas);
       try {
-        const { data } = await wk.recognize(prepare(canvas));
-        return (data.paragraphs || []).map(p => (p.lines || [])
+        let timer;
+        const late = new Promise(res => { timer = setTimeout(() => res('late'), limitMs); });
+        const r = await Promise.race([wk.recognize(img), late]); clearTimeout(timer);
+        if (r === 'late') { await this.close(); return null; }
+        return (r.data.paragraphs || []).map(p => (p.lines || [])
           .filter(l => l.confidence >= 65 && /[A-Za-z]{2}/.test(l.text)).map(l => l.text.trim()).join(' ')
           .replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim()).filter(t => t.length > 1);
-      } catch { return null; }
+      } catch { await this.close(); return null; }
+      finally { drop(img); }
     },
-    async close() { if (w) { const p = w; w = null; try { const wk = await p; await wk?.terminate(); } catch {} } }
+    async close() { uses = 0; if (w) { const p = w; w = null; try { const wk = await p; await wk?.terminate(); } catch {} } }
   };
 })();
 // Tesseract reads dark text on a light ground best: make the picture grey, flip light-on-dark lettering
 // (like gold on black), stretch the contrast, and enlarge small pictures.
 function prepare(src) {
-  const sc = Math.max(1, Math.min(3, 1400 / Math.max(src.width, src.height)));
+  const sc = Math.min(2, 1000 / Math.max(src.width, src.height));
   const c = document.createElement('canvas'); c.width = Math.round(src.width * sc); c.height = Math.round(src.height * sc);
   const g = c.getContext('2d'); g.drawImage(src, 0, 0, c.width, c.height);
   const img = g.getImageData(0, 0, c.width, c.height), d = img.data, n = d.length / 4, gray = new Float32Array(n);
@@ -1271,12 +1281,12 @@ function prepare(src) {
   g.putImageData(img, 0, 0);
   return c;
 }
-const freshImages = new Map(), imageURLs = new Map();
-async function saveImage(id, blob) { freshImages.set(id, blob); await Library.putImage(id, blob); }
+const imageURLs = new Map();
+const saveImage = (id, blob) => Library.putImage(id, blob);
 async function imageURL(id) {
   if (imageURLs.has(id)) return imageURLs.get(id);
-  let blob = freshImages.get(id);
-  if (!blob) { const r = await Library.getImage(id); if (!r) return null; blob = new Blob([r.buf], { type: r.type }); }
+  const r = await Library.getImage(id); if (!r) return null;
+  const blob = new Blob([r.buf], { type: r.type });
   const u = URL.createObjectURL(blob); imageURLs.set(id, u); return u;
 }
 const toJPEG = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
@@ -1301,6 +1311,7 @@ function imageRects(ops) {
     }
   }
   // Pictures are often drawn in strips or tiles; join touching pieces into one picture.
+  if (rects.length > 150) return [rects.reduce((a, b) => ({ x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) }))];
   let merged = true;
   while (merged) {
     merged = false;
@@ -1357,13 +1368,15 @@ async function renderCrops(page, rects) {
   const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
   await page.render({ canvasContext: g, viewport: vp }).promise;
-  return rects.map(r => {
+  const crops = rects.map(r => {
     const [a, b, cx, d] = vp.convertToViewportRectangle([r.x0, r.y0, r.x1, r.y1]);
     const x = Math.max(0, Math.floor(Math.min(a, cx))), y = Math.max(0, Math.floor(Math.min(b, d)));
     const w = Math.max(1, Math.min(c.width - x, Math.ceil(Math.abs(cx - a)))), h = Math.max(1, Math.min(c.height - y, Math.ceil(Math.abs(d - b))));
     const k = document.createElement('canvas'); k.width = w; k.height = h; k.getContext('2d').drawImage(c, x, y, w, h, 0, 0, w, h);
     return k;
   });
+  drop(c);
+  return crops;
 }
 const CHAPTER_LINE = /^(chapter|book|part)\s+([a-z]+(?:[- ][a-z]+)?|\d+|[ivxlc]+)\.?$/i;
 const VERSE_START = /^\d{1,3}\s+(?=["“'(]?[A-Z])/;
@@ -1374,11 +1387,27 @@ async function readPDF(file, key) {
   await loadScript(base + 'pdf.min.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  const blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
-  let chapter = null, figN = 0, lastPara = null;
-  for (let p = 1; p <= pdf.numPages; p++) {
+  let blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
+  let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0;
+  // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
+  const prior = await Library.getImport(key);
+  if (prior && prior.total === pdf.numPages) {
+    blocks = await Library.importBlocks(key, prior.chunks);
+    saved = blocks.length; blocks.push(...prior.tail);
+    ({ chapter, figN, chunks } = prior); start = prior.next; lastPara = prior.lastIdx >= 0 ? blocks[prior.lastIdx] : null;
+  } else { await Library.clearImport(key); await Library.removeImages(key); }
+  const checkpoint = async next => {
+    const li = lastPara ? blocks.lastIndexOf(lastPara) : -1, keep = li >= 0 ? li : blocks.length; // the open paragraph may still grow
+    if (keep > saved) { await Library.putImportChunk(key, chunks++, blocks.slice(saved, keep)); saved = keep; }
+    await Library.putImport({ id: key + '|meta', key, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li });
+  };
+  for (let p = start; p <= pdf.numPages; p++) {
     busy('Reading page ' + p + ' of ' + pdf.numPages + '…');
-    const page = await pdf.getPage(p), tc = await page.getTextContent();
+    if (p > start && (p - start) % 20 === 0) { await checkpoint(p); try { await pdf.cleanup(); } catch {} }
+    await new Promise(r => setTimeout(r, 0)); // let the phone tidy memory between pages
+    const page = await pdf.getPage(p);
+    try {
+    const tc = await page.getTextContent();
     const [vx0, vy0, vx1, vy1] = page.view, W = vx1 - vx0, H = vy1 - vy0;
     const items = tc.items.filter(it => 'str' in it && it.str.trim()).map(it => {
       const x0 = it.transform[4], h = Math.abs(it.transform[3]) || it.height || 10;
@@ -1398,7 +1427,7 @@ async function readPDF(file, key) {
       const full = rects.find(r => (r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.6);
       if (full) {
         const [canvas] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }]);
-        const paras = (await OCR.read(canvas)) || [];
+        const paras = (await OCR.read(canvas, 30000)) || []; drop(canvas);
         if (paras.join(' ').length > 160) {
           for (const t of paras) {
             const m = CHAPTER_LINE.exec(t);
@@ -1407,7 +1436,7 @@ async function readPDF(file, key) {
             if (lastPara && !/[.!?:"”']$/.test(lastPara.text) && /^[a-z]/.test(t)) lastPara.text += ' ' + t;
             else blocks.push(lastPara = { text: t, page: p });
           }
-          continue;
+          continue; // (the page is still cleaned up below)
         }
       }
     }
@@ -1450,6 +1479,7 @@ async function readPDF(file, key) {
         const id = key + '#' + (++figN);
         await saveImage(id, await toJPEG(crops[i]));
         figs.push({ y: r.y1, col, used, block: { fig: id, w: crops[i].width, h: crops[i].height, caption: caption.map(l => l.t), words, page: p } });
+        drop(crops[i]);
       }
     }
     const used = new Set(figs.flatMap(f => [...f.used]));
@@ -1475,8 +1505,10 @@ async function readPDF(file, key) {
         lastPara = cur; prevY = e.y;
       }
     }
+    } finally { page.cleanup(); }
   }
   await OCR.close();
+  await Library.clearImport(key);
   // Sections: the book's own chapters when it has them, otherwise groups of ten pages.
   const sections = []; let sec = null;
   const hasChapters = blocks.some(b => b.chap);
@@ -1535,7 +1567,7 @@ async function readEPUB(file, key) {
           const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
           c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
           const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-          words = (await OCR.read(c)) || [];
+          words = (await OCR.read(c)) || []; drop(c);
         }
         const alt = (el.getAttribute('alt') || el.getAttribute('title') || '').trim();
         const id = key + '#' + (++figN);
@@ -1574,7 +1606,7 @@ async function openFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     let b;
     const key = file.name + ':' + file.size;
-    await Library.removeImages(key); freshImages.clear();
+    if (ext !== 'pdf') await Library.removeImages(key); // a PDF clears them itself unless it's continuing an import
     if (ext === 'pdf' || file.type === 'application/pdf') b = await readPDF(file, key);
     else if (ext === 'epub') b = await readEPUB(file, key);
     else if (ext === 'txt' || ext === 'md' || file.type.startsWith('text/')) b = readText(file.name, await file.text());
@@ -1639,11 +1671,12 @@ const Library = (() => {
   function db() {
     if (!dbp) dbp = new Promise((res, rej) => {
       try {
-        const r = indexedDB.open('undertone', 2);
+        const r = indexedDB.open('undertone', 3);
         r.onupgradeneeded = () => {
           const d = r.result;
           if (!d.objectStoreNames.contains('books')) d.createObjectStore('books', { keyPath: 'key' });
           if (!d.objectStoreNames.contains('images')) d.createObjectStore('images', { keyPath: 'id' }); // pictures from books, by "<book key>#<n>"
+          if (!d.objectStoreNames.contains('imports')) d.createObjectStore('imports', { keyPath: 'id' }); // progress of long imports
         };
         r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
       } catch (e) { rej(e); }
@@ -1658,6 +1691,12 @@ const Library = (() => {
     async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} await this.removeImages(k); },
     async putImage(id, blob) { try { const buf = await blob.arrayBuffer(); await tx('readwrite', st => st.put({ id, buf, type: blob.type }), 'images'); } catch {} },
     async getImage(id) { try { return await tx('readonly', st => st.get(id), 'images'); } catch { return null; } },
+    async putImport(meta) { try { await tx('readwrite', st => st.put(meta), 'imports'); } catch {} },
+    async putImportChunk(k, n, blocks) { try { await tx('readwrite', st => st.put({ id: k + '|c' + n, blocks }), 'imports'); } catch {} },
+    async getImport(k) { try { return await tx('readonly', st => st.get(k + '|meta'), 'imports'); } catch { return null; } },
+    async importBlocks(k, n) { const out = []; for (let i = 0; i < n; i++) { const c = await tx('readonly', st => st.get(k + '|c' + i), 'imports').catch(() => null); if (c) out.push(...c.blocks); } return out; },
+    async clearImport(k) { try { await tx('readwrite', st => st.delete(IDBKeyRange.bound(k + '|', k + '|\uffff')), 'imports'); } catch {} },
+    async unfinishedImports() { try { return ((await tx('readonly', st => st.getAll(), 'imports')) || []).filter(r => r.id.endsWith('|meta')); } catch { return []; } },
     async removeImages(k) { try { await tx('readwrite', st => st.delete(IDBKeyRange.bound(k + '#', k + '#\uffff')), 'images'); } catch {} }
   };
 })();
@@ -1713,6 +1752,13 @@ function toggleLibrary(force) {
 }
 $('#libBtn').addEventListener('click', () => toggleLibrary());
 
+// If a long import was interrupted (for example the phone ran short of memory), say how to continue it.
+async function noteUnfinished() {
+  const u = (await Library.unfinishedImports())[0]; if (!u) return;
+  const n = $('#notice'); n.textContent = '';
+  const st = document.createElement('strong'); st.textContent = u.title.replace(/\.pdf$/i, '');
+  n.append(st, ' was saved up to page ' + (u.next - 1) + ' of ' + u.total + '. Tap Open and choose the same file to continue from there.');
+}
 // Start with the last book you were reading, at your last spot; otherwise the sample story.
 (async () => {
   const last = store.get('last', SAMPLE_KEY);
@@ -1721,9 +1767,10 @@ $('#libBtn').addEventListener('click', () => toggleLibrary());
     if (b) { loadBook({ title: b.title, sections: b.sections }, b.key);
       $('#notice').textContent = ''; const st = document.createElement('strong'); st.textContent = b.title;
       $('#notice').append(st, ' picked up where you left off. Press play to keep going, or open Library for your other books.');
-      return; }
+      noteUnfinished(); return; }
   }
   openSample();
+  noteUnfinished();
 })();
 })();
 </script>
