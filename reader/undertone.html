@@ -790,7 +790,10 @@ const Music = (() => {
     master.connect(voiceGap); voiceGap.connect(presence); presence.connect(comp); comp.connect(analyser);
     // Send the music out through an <audio> element rather than straight to the speakers. Phones treat a playing
     // media element as "now playing" audio, which follows the car or headphones and shows the car's media controls.
-    try {
+    // Inside the iPhone app this isn't needed (the app's audio session already follows the car), and a web
+    // media element there competes with the narrator for the audio session, so play directly.
+    if (window.__UNDERTONE_NATIVE) { analyser.connect(ctx.destination); outEl = null; }
+    else try {
       const dest = ctx.createMediaStreamDestination(); analyser.connect(dest);
       outEl = $('#out'); outEl.srcObject = dest.stream;
     } catch { analyser.connect(ctx.destination); outEl = null; }
@@ -882,7 +885,13 @@ const Music = (() => {
       level = vol; if (!ctx && !init()) return; master.gain.setTargetAtTime(level, ctx.currentTime, 0.1); if (ctx.state !== 'running') ctx.resume();
       if (outEl && !direct) outEl.play().catch(() => { direct = true; try { analyser.connect(ctx.destination); } catch {} }); // fall back to plain output
     },
-    pause() { if (ctx && ctx.state === 'running') ctx.suspend(); if (outEl && !direct) outEl.pause(); },
+    pause() {
+      if (!ctx) return;
+      // In the app, fade to silence but keep the audio engine running: stopping it lets iPhone switch the
+      // audio session off, and the narrator then can't get it back when you press play again.
+      if (window.__UNDERTONE_NATIVE) { master.gain.setTargetAtTime(0, ctx.currentTime, 0.08); return; }
+      if (ctx.state === 'running') ctx.suspend(); if (outEl && !direct) outEl.pause();
+    },
     volume(v) { level = v; if (ctx) master.gain.setTargetAtTime(v, ctx.currentTime, 0.1); },
     setMood(m) {
       wanted = m; if (!ctx) return;

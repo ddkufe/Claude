@@ -4,17 +4,17 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import * as Speech from 'expo-speech';
-import { setAudioModeAsync } from 'expo-audio';
+import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { READER_HTML } from './src/readerHtml';
 import { BRIDGE_JS } from './src/bridge';
 
 // Play like a music or audiobook app: ignore the silent switch, keep going in the background,
 // and follow the phone's audio output (CarPlay, Bluetooth, AirPlay) for both the voice and the music.
-let sessionReady = null;
+// Re-applied before every sentence: the web view's music can change or switch off the shared audio
+// session (for example after a pause), and the narrator would then be silent.
 function startAudioSession() {
-  if (!sessionReady) sessionReady = configureAudio();
-  return sessionReady;
+  return configureAudio();
 }
 async function configureAudio() {
   try {
@@ -24,6 +24,7 @@ async function configureAudio() {
       interruptionMode: 'doNotMix',
       allowsRecording: false,
     });
+    await setIsAudioActiveAsync(true);
     return null;
   } catch (e) {
     console.warn('Could not set audio mode', e);
@@ -43,6 +44,7 @@ function voiceLabel(v) {
 export default function App() {
   useKeepAwake();
   const web = useRef(null);
+  const stopToken = useRef(0);
   const dark = useColorScheme() === 'dark';
 
   useEffect(() => { startAudioSession(); }, []);
@@ -67,9 +69,20 @@ export default function App() {
         call('status', `couldn't list voices (${e?.message || e})`);
       }
     } else if (m.type === 'speak') {
+      const token = stopToken.current; // a later 'stop' makes this sentence stale
       const sessionError = await startAudioSession();
+      if (stopToken.current !== token) return;
       if (sessionError) call('status', `audio setup failed (${sessionError})`);
-      const speakWith = (voice, retried) => {
+      const speakWith = (voice, retried, session = m.session) => {
+        let started = false;
+        // If iPhone doesn't start speaking within a few seconds, the app's audio session is stuck:
+        // stop and say the sentence through the iPhone speech system instead, so the narrator is never silent.
+        const guard = session !== 'system' ? setTimeout(() => {
+          if (started || stopToken.current !== token) return;
+          Speech.stop();
+          call('status', 'switched to the iPhone speech system for this sentence');
+          speakWith(voice, retried, 'system');
+        }, 2500) : null;
         try {
           Speech.speak(m.text, {
             voice: voice || undefined,
@@ -77,10 +90,11 @@ export default function App() {
             rate: m.rate ?? 1,
             pitch: m.pitch ?? 1,
             volume: m.volume ?? 1,
-            useApplicationAudioSession: m.session !== 'system',
-            onStart: () => call('status', `speaking (${m.session === 'system' ? 'iPhone speech system' : 'with the music'})`),
-            onDone: () => call('done', m.id),
+            useApplicationAudioSession: session !== 'system',
+            onStart: () => { started = true; clearTimeout(guard); call('status', `speaking (${session === 'system' ? 'iPhone speech system' : 'with the music'})`); },
+            onDone: () => { clearTimeout(guard); if (stopToken.current === token) call('done', m.id); },
             onError: (err) => {
+              clearTimeout(guard);
               // A voice that's been removed or isn't allowed fails here; fall back to the default voice once.
               if (voice && !retried) { speakWith(null, true); return; }
               call('status', `error: ${err?.message || err}`);
@@ -88,6 +102,7 @@ export default function App() {
             },
           });
         } catch (err) {
+          clearTimeout(guard);
           if (voice && !retried) { speakWith(null, true); return; }
           call('status', `error: ${err?.message || err}`);
           call('error', m.id, String(err?.message || err));
@@ -95,6 +110,7 @@ export default function App() {
       };
       speakWith(m.voice, false);
     } else if (m.type === 'stop') {
+      stopToken.current++;
       Speech.stop();
     }
   }, [call]);
