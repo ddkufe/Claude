@@ -253,6 +253,14 @@ input[type=range] { width: 100%; accent-color: var(--mood); }
       <div class="field voice-field"><label for="voice">Voice</label>
         <div class="voice-row"><select id="voice"></select><button class="btn" id="testVoice" type="button">Hear it</button></div>
         <p class="tip" id="voiceTip" hidden>Your device has no high-quality voice installed. On iPhone go to Settings › Accessibility › Spoken Content › Voices and download an Enhanced or Premium voice. On Android, install the Google voices in Text-to-speech settings. Then reopen this page.</p>
+        <p class="tip" id="nativeStatus" hidden></p>
+      </div>
+      <div class="field" id="outField" hidden><label for="voiceOut">Voice output</label>
+        <select id="voiceOut">
+          <option value="app">With the music (CarPlay, Bluetooth)</option>
+          <option value="system">iPhone speech system</option>
+        </select>
+        <p class="tip">If you can't hear the voice, try the other option.</p>
       </div>
       <div class="field"><label for="dvoice">Character voice</label><select id="dvoice"></select>
         <p class="tip">Used for anything inside quotation marks.</p>
@@ -511,7 +519,9 @@ $('#prev').addEventListener('click', () => seek(Math.max(0, idx - 1), false));
 $('#next').addEventListener('click', () => seek(Math.min(sentences.length - 1, idx + 1), false));
 
 /* ---------------- Speech ---------------- */
-const synth = window.speechSynthesis;
+// Inside the iPhone app, src/bridge.js provides a stand-in that speaks with the phone's own voices.
+const synth = window.__undertoneSynth || window.speechSynthesis;
+const Utter = window.__undertoneUtterance || window.SpeechSynthesisUtterance;
 let dialogMode = store.get('dialogMode', 'auto');
 let voices = [], voice = null, rate = store.get('rate', 0.95), token = 0, timer = null, watchdog = null;
 // Novelty and robotic voices that ship with phones and desktops; never pick these by default.
@@ -559,7 +569,7 @@ function testVoice() {
   if (!synth) return;
   if (playing) pause();
   synth.cancel();
-  const u = new SpeechSynthesisUtterance('This is how I will sound reading your book.');
+  const u = new Utter('This is how I will sound reading your book.');
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   u.rate = rate; synth.speak(u);
 }
@@ -569,7 +579,7 @@ $('#dvoice').addEventListener('change', e => {
   if (playing) { speakCurrent(); return; }
   if (!synth || dialogMode === 'off') return;
   synth.cancel();
-  const cv = characterVoice(), u = new SpeechSynthesisUtterance('“Is someone there?” This is how characters will sound.');
+  const cv = characterVoice(), u = new Utter('“Is someone there?” This is how characters will sound.');
   const v = cv.voice || voice; if (v) { u.voice = v; u.lang = v.lang; }
   u.rate = rate; u.pitch = cv.pitch; synth.speak(u);
 });
@@ -615,7 +625,7 @@ function speakCurrent() {
     if (my !== token || !playing) return;
     if (j >= segs.length) { done(); return; }
     const g = segs[j++];
-    const u = new SpeechSynthesisUtterance(g.text.trim());
+    const u = new Utter(g.text.trim());
     const cv = g.dialog ? characterVoice() : null;
     const v = cv && cv.voice ? cv.voice : voice;
     if (v) { u.voice = v; u.lang = v.lang; }
@@ -710,7 +720,15 @@ function updateNowPlaying() {
 }
 
 /* ---------------- Settings ---------------- */
-if (window.__UNDERTONE_NATIVE) $('#carTip').hidden = true; // the iPhone app routes all sound to the car itself
+if (window.__UNDERTONE_NATIVE) {
+  $('#carTip').hidden = true; // the iPhone app routes all sound to the car itself
+  $('#outField').hidden = false;
+  const vo = $('#voiceOut');
+  vo.value = window.__undertoneOutput = store.get('voiceOut', 'app');
+  vo.addEventListener('change', () => { window.__undertoneOutput = vo.value; store.set('voiceOut', vo.value); if (playing) speakCurrent(); else testVoice(); });
+  // The app reports what its speech engine is doing, so problems are visible on the phone.
+  window.__nativeStatus = msg => { const el = $('#nativeStatus'); el.hidden = false; el.textContent = 'Voice engine: ' + msg; };
+}
 $('#setBtn').addEventListener('click', () => {
   const p = $('#panel'); p.hidden = !p.hidden; $('#setBtn').setAttribute('aria-expanded', String(!p.hidden));
 });

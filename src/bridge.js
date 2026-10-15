@@ -22,7 +22,8 @@ export const BRIDGE_JS = `
     speak: function (u) {
       var id = ++seq; pending[id] = u; count++; synth.speaking = true;
       post({ type: 'speak', id: id, text: u.text, voice: u.voice ? u.voice.voiceURI : null,
-             lang: u.voice ? u.voice.lang : (u.lang || null), rate: u.rate, pitch: u.pitch, volume: u.volume });
+             lang: u.voice ? u.voice.lang : (u.lang || null), rate: u.rate, pitch: u.pitch, volume: u.volume,
+             session: window.__undertoneOutput || 'app' });
     },
     cancel: function () {
       pending = {}; count = 0; synth.speaking = false;
@@ -44,6 +45,9 @@ export const BRIDGE_JS = `
       delete pending[id]; count--; if (count <= 0) { count = 0; synth.speaking = false; }
       if (u.onerror) u.onerror({ type: 'error', error: msg || 'synthesis-failed' });
     },
+    status: function (msg) {
+      if (typeof window.__nativeStatus === 'function') window.__nativeStatus(msg);
+    },
     voices: function (list) {
       voices = list || [];
       (listeners.voiceschanged || []).forEach(function (f) { try { f(); } catch (e) {} });
@@ -51,8 +55,11 @@ export const BRIDGE_JS = `
     }
   };
 
-  try { Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true }); } catch (e) { window.speechSynthesis = synth; }
-  window.SpeechSynthesisUtterance = Utterance;
+  // The reader looks for these first. Overriding window.speechSynthesis itself isn't reliable in WebKit.
+  window.__undertoneSynth = synth;
+  window.__undertoneUtterance = Utterance;
+  try { Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true }); } catch (e) {}
+  try { window.SpeechSynthesisUtterance = Utterance; } catch (e) {}
   post({ type: 'voices' });
 })();
 true;
