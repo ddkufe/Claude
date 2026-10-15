@@ -149,6 +149,9 @@ article p { margin: 0 0 .7em; text-align: justify; hyphens: auto; overflow-wrap:
 .tablet-card blockquote { margin: 0; font-weight: 700; font-size: 1.3rem; line-height: 1.32; text-wrap: balance; }
 .tablet-card .seal { display: block; margin: 14px auto 0; width: 52px; height: 52px; color: var(--red); }
 .tablet-card small { display: block; margin-top: 8px; font-family: var(--f-cap); font-size: .6rem; letter-spacing: .2em; color: var(--muted); }
+.plate { margin: 1.4em auto .5em; text-align: center; }
+.plate img { max-width: 100%; height: auto; display: block; margin: 0 auto; background: #fff; border: 2px solid var(--rule); box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--rule); }
+article p.figtext { text-align: center; font-weight: 700; font-size: .95em; margin-bottom: 1.2em; }
 .endmark { text-align: center; color: var(--gold); font-family: var(--f-cap); font-size: .8rem; letter-spacing: .3em; margin-top: 2.4em; }
 
 /* Cover: always the black and gold of the book's cover */
@@ -498,7 +501,17 @@ let book = null, sentences = [], idx = 0, playing = false;
 
 function loadBook(b, key) {
   stopSpeech(); playing = false; setPlayIcon();
-  b.sections = b.sections.map(s => ({ title: s.title, paras: s.paras.map(clean).filter(t => t.length > 1).map(text => ({ text })) })).filter(s => s.paras.length);
+  // Paragraphs are text, or pictures with their caption and the words found in them (read aloud as one passage).
+  // A paragraph that opens with the book's own verse number keeps that number.
+  const para = p => {
+    if (typeof p !== 'string') {
+      const cap = spokenLines(p.caption || []), words = spokenLines(p.words || []);
+      return { ...p, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
+    }
+    const t = clean(p), m = /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
+    return m ? { text: t.slice(m[0].length), vn: +m[1] } : { text: t };
+  };
+  b.sections = b.sections.map(s => ({ title: s.title, paras: s.paras.map(para).filter(p => p.fig || p.text.length > 1) })).filter(s => s.paras.length);
   if (!b.sections.length) throw new Error('No readable text was found in this file.');
   analyze(b);
   book = b; book.key = key || b.title;
@@ -549,11 +562,14 @@ function render() {
   book.sections.forEach((sec, si) => {
     sec.first = sentences.length;
     const head = document.createElement('header'); head.className = 'chap-head';
-    const no = document.createElement('div'); no.className = 'chap-no'; no.textContent = 'CHAPTER ' + chapWord(si + 1);
-    const h = document.createElement('h2'); h.textContent = sec.title; h.id = 'sec' + si;
+    // A book's own "Chapter One" becomes the small heading; otherwise number the sections ourselves.
+    const own = /^chapter\s/i.test(sec.title), bookHasOwn = book.sections.some(x => /^chapter\s/i.test(x.title));
+    const no = document.createElement('div'); no.className = 'chap-no'; no.textContent = own ? sec.title.toUpperCase() : bookHasOwn ? '' : 'CHAPTER ' + chapWord(si + 1); no.hidden = !no.textContent;
+    const h = document.createElement('h2'); h.textContent = own ? '' : sec.title; h.id = 'sec' + si; h.hidden = own;
     const bar = document.createElement('div'); bar.className = 'tablet-bar';
     const l = document.createElement('span'); l.textContent = 'Tablet ' + (si + 1) + ':1';
-    const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + sec.paras.length;
+    const lastV = sec.paras.reduce((n, p, i) => p.vn || (p.fig ? n : i + 1), 0) || sec.paras.length;
+    const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + lastV;
     bar.append(l, r); head.append(no, h, bar); frag.appendChild(head);
     const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; chap.appendChild(o);
     sec.paras.forEach((p, pi) => {
@@ -561,8 +577,17 @@ function render() {
         const d = document.createElement('div'); d.className = 'shift'; d.style.setProperty('--c', MOODS[p.mood].color);
         d.append(ANKH(), ' The music turns ' + MOODS[p.mood].label.toLowerCase() + ' ', ANKH()); frag.appendChild(d); prevMood = p.mood;
       }
+      if (p.fig) {
+        const fg = document.createElement('figure'); fg.className = 'plate';
+        const im = document.createElement('img'); im.dataset.img = p.fig; im.alt = (p.caption || []).join(' ') || 'Illustration'; im.decoding = 'async';
+        if (p.w && p.h) { im.width = p.w; im.height = p.h; }
+        fg.appendChild(im); frag.appendChild(fg);
+        if (!p.text) return;
+      }
+      const verse = p.vn || pi + 1;
       const el = document.createElement('p'); el.style.setProperty('--pm', MOODS[p.mood].color);
-      const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = pi + 1; el.appendChild(vn);
+      if (p.fig) el.className = 'figtext';
+      else { const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = verse; el.appendChild(vn); }
       const parts = splitSentences(p.text);
       let inQuote = false;
       parts.forEach((s, k) => {
@@ -571,7 +596,7 @@ function render() {
         const r = segment(s, inQuote); inQuote = r.inQuote;
         for (const g of r.segs) { if (g.dialog) { const q = document.createElement('span'); q.className = 'dlg'; q.textContent = g.text; sp.appendChild(q); } else sp.append(g.text); }
         el.appendChild(sp); if (k) el.insertBefore(document.createTextNode(' '), sp);
-        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, vn: pi + 1, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
+        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
       });
       frag.appendChild(el);
     });
@@ -580,7 +605,11 @@ function render() {
   book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
   const end = document.createElement('div'); end.className = 'endmark'; end.append(ANKH(), '  THE END  ', ANKH()); frag.appendChild(end);
   art.appendChild(frag);
+  art.querySelectorAll('img[data-img]').forEach(im => imgObserver ? imgObserver.observe(im) : fillImage(im));
 }
+// Pictures load as they come near the screen, so long illustrated books stay light.
+function fillImage(im) { imageURL(im.dataset.img).then(u => { if (u) im.src = u; }); }
+const imgObserver = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { imgObserver.unobserve(e.target); fillImage(e.target); } }), { rootMargin: '1200px 0px' }) : null;
 
 /* ---------------- Keeping lines ---------------- */
 function toast(msg) {
@@ -1204,43 +1233,267 @@ function loadScript(src) {
 }
 function busy(msg) { const l = $('#loading'); if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else l.hidden = true; }
 
-async function readPDF(file) {
+/* ---------------- Pictures, and the words inside them ---------------- */
+// Words that are part of a picture (or a whole scanned page) are read with Tesseract, which runs on the phone.
+// Only lines it reads confidently are kept, so decorative lettering doesn't turn into gibberish.
+const OCR = (() => {
+  let w = null;
+  function worker() {
+    if (!w) w = (async () => {
+      await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+      return await Tesseract.createWorker('eng');
+    })().catch(() => null);
+    return w;
+  }
+  return {
+    async read(canvas) {
+      const wk = await worker(); if (!wk) return null;
+      try {
+        const { data } = await wk.recognize(prepare(canvas));
+        return (data.paragraphs || []).map(p => (p.lines || [])
+          .filter(l => l.confidence >= 65 && /[A-Za-z]{2}/.test(l.text)).map(l => l.text.trim()).join(' ')
+          .replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim()).filter(t => t.length > 1);
+      } catch { return null; }
+    },
+    async close() { if (w) { const p = w; w = null; try { const wk = await p; await wk?.terminate(); } catch {} } }
+  };
+})();
+// Tesseract reads dark text on a light ground best: make the picture grey, flip light-on-dark lettering
+// (like gold on black), stretch the contrast, and enlarge small pictures.
+function prepare(src) {
+  const sc = Math.max(1, Math.min(3, 1400 / Math.max(src.width, src.height)));
+  const c = document.createElement('canvas'); c.width = Math.round(src.width * sc); c.height = Math.round(src.height * sc);
+  const g = c.getContext('2d'); g.drawImage(src, 0, 0, c.width, c.height);
+  const img = g.getImageData(0, 0, c.width, c.height), d = img.data, n = d.length / 4, gray = new Float32Array(n);
+  let sum = 0; for (let i = 0; i < n; i++) { const v = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]; gray[i] = v; sum += v; }
+  const invert = sum / n < 110, sorted = Float32Array.from(gray).sort(), lo = sorted[Math.floor(n * 0.02)], hi = sorted[Math.floor(n * 0.98)], span = Math.max(1, hi - lo);
+  for (let i = 0; i < n; i++) { let v = (gray[i] - lo) / span * 255; v = Math.max(0, Math.min(255, v)); if (invert) v = 255 - v; d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+const freshImages = new Map(), imageURLs = new Map();
+async function saveImage(id, blob) { freshImages.set(id, blob); await Library.putImage(id, blob); }
+async function imageURL(id) {
+  if (imageURLs.has(id)) return imageURLs.get(id);
+  let blob = freshImages.get(id);
+  if (!blob) { const r = await Library.getImage(id); if (!r) return null; blob = new Blob([r.buf], { type: r.type }); }
+  const u = URL.createObjectURL(blob); imageURLs.set(id, u); return u;
+}
+const toJPEG = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+const spokenLines = ls => ls.map(t => t.trim()).filter(Boolean).map(t => /[.!?:;,]$/.test(t) ? t : t + '.').join(' ');
+
+/* ---------------- PDF ---------------- */
+// Where each picture is drawn on a PDF page, in page coordinates, found by following the page's drawing operations.
+function imageRects(ops) {
+  const OPS = pdfjsLib.OPS, mul = (m, c) => [m[0] * c[0] + m[1] * c[2], m[0] * c[1] + m[1] * c[3], m[2] * c[0] + m[3] * c[2], m[2] * c[1] + m[3] * c[3], m[4] * c[0] + m[5] * c[2] + c[4], m[4] * c[1] + m[5] * c[3] + c[5]];
+  const paint = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintJpegXObject].filter(v => v != null));
+  let ctm = [1, 0, 0, 1, 0, 0]; const stack = [], rects = [];
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    const fn = ops.fnArray[i], a = ops.argsArray[i];
+    if (fn === OPS.save) stack.push(ctm);
+    else if (fn === OPS.restore) ctm = stack.pop() || ctm;
+    else if (fn === OPS.transform) ctm = mul(a, ctm);
+    else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); if (a && a[0]) ctm = mul(a[0], ctm); }
+    else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() || ctm;
+    else if (paint.has(fn)) {
+      const xs = [ctm[4], ctm[0] + ctm[4], ctm[2] + ctm[4], ctm[0] + ctm[2] + ctm[4]], ys = [ctm[5], ctm[1] + ctm[5], ctm[3] + ctm[5], ctm[1] + ctm[3] + ctm[5]];
+      rects.push({ x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
+    }
+  }
+  // Pictures are often drawn in strips or tiles; join touching pieces into one picture.
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i < rects.length && !merged; i++) for (let j = i + 1; j < rects.length; j++) {
+      const a = rects[i], b = rects[j];
+      if (a.x0 <= b.x1 + 3 && b.x0 <= a.x1 + 3 && a.y0 <= b.y1 + 3 && b.y0 <= a.y1 + 3) {
+        rects[i] = { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1) };
+        rects.splice(j, 1); merged = true; break;
+      }
+    }
+  }
+  return rects;
+}
+// The empty vertical strip between two columns of text, if the page has two columns.
+function findGutter(items, x0, W) {
+  const bins = 120, cov = new Array(bins).fill(0);
+  for (const it of items) { const a = Math.max(0, Math.floor((it.x0 - x0) / W * bins)), b = Math.min(bins - 1, Math.floor((it.x1 - x0) / W * bins)); for (let i = a; i <= b; i++) cov[i]++; }
+  if (items.length < 6) return null;
+  // The widest run of (nearly) empty strips near the middle; a centred heading may cross it.
+  const lim = Math.max(1, Math.floor(items.length * 0.04)), lo = Math.floor(bins * 0.3), hi = Math.ceil(bins * 0.7);
+  let run = null;
+  for (let i = lo; i <= hi; i++) {
+    if (cov[i] > lim) continue;
+    let j = i; while (j + 1 <= hi && cov[j + 1] <= lim) j++;
+    if (!run || j - i > run[1] - run[0] || (j - i === run[1] - run[0] && Math.abs((i + j) / 2 - bins / 2) < Math.abs((run[0] + run[1]) / 2 - bins / 2))) run = [i, j];
+    i = j;
+  }
+  if (!run) return null;
+  const gx = x0 + ((run[0] + run[1]) / 2 + 0.5) / bins * W;
+  const left = items.filter(it => it.x1 <= gx).length, right = items.filter(it => it.x0 >= gx).length;
+  return left >= items.length * 0.2 && right >= items.length * 0.2 ? gx : null;
+}
+function buildLines(items) {
+  items.sort((a, b) => b.y - a.y || a.x0 - b.x0);
+  const lines = [];
+  for (const it of items) {
+    let l = lines.find(l => Math.abs(l.y - it.y) <= Math.max(l.h, it.h) * 0.5);
+    if (!l) { l = { y: it.y, h: it.h, parts: [] }; lines.push(l); }
+    l.parts.push(it);
+  }
+  for (const l of lines) {
+    l.parts.sort((a, b) => a.x0 - b.x0);
+    let t = '', prev = null;
+    for (const p of l.parts) {
+      if (prev && !/\s$/.test(t) && !/^\s/.test(p.str) && p.x0 - prev.x1 > l.h * 0.12) t += ' ';
+      t += p.str; prev = p;
+    }
+    l.t = t.replace(/\s+/g, ' ').trim(); l.x0 = l.parts[0].x0; l.x1 = Math.max(...l.parts.map(p => p.x1));
+  }
+  return lines.filter(l => l.t).sort((a, b) => b.y - a.y);
+}
+async function renderCrops(page, rects) {
+  const vp1 = page.getViewport({ scale: 1 }), scale = Math.min(2.2, 1100 / vp1.width), vp = page.getViewport({ scale });
+  const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: g, viewport: vp }).promise;
+  return rects.map(r => {
+    const [a, b, cx, d] = vp.convertToViewportRectangle([r.x0, r.y0, r.x1, r.y1]);
+    const x = Math.max(0, Math.floor(Math.min(a, cx))), y = Math.max(0, Math.floor(Math.min(b, d)));
+    const w = Math.max(1, Math.min(c.width - x, Math.ceil(Math.abs(cx - a)))), h = Math.max(1, Math.min(c.height - y, Math.ceil(Math.abs(d - b))));
+    const k = document.createElement('canvas'); k.width = w; k.height = h; k.getContext('2d').drawImage(c, x, y, w, h, 0, 0, w, h);
+    return k;
+  });
+}
+const CHAPTER_LINE = /^(chapter|book|part)\s+([a-z]+(?:[- ][a-z]+)?|\d+|[ivxlc]+)\.?$/i;
+const VERSE_START = /^\d{1,3}\s+(?=["“'(]?[A-Z])/;
+const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+async function readPDF(file, key) {
   const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   await loadScript(base + 'pdf.worker.min.js');
   await loadScript(base + 'pdf.min.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  const sections = [];
+  const blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
+  let chapter = null, figN = 0, lastPara = null;
   for (let p = 1; p <= pdf.numPages; p++) {
     busy('Reading page ' + p + ' of ' + pdf.numPages + '…');
     const page = await pdf.getPage(p), tc = await page.getTextContent();
-    const lines = []; let line = null;
-    for (const it of tc.items) {
-      if (!('str' in it)) continue;
-      const y = it.transform[5], h = Math.abs(it.transform[3]) || 10;
-      if (!line || Math.abs(y - line.y) > h * 0.5) { line = { y, h, t: '' }; lines.push(line); }
-      line.t += it.str;
-      if (it.hasEOL) line = null;
-    }
-    const kept = lines.map(l => ({ ...l, t: l.t.trim() })).filter(l => l.t && !/^\d{1,4}$/.test(l.t));
-    const gaps = []; for (let i = 1; i < kept.length; i++) gaps.push(Math.abs(kept[i - 1].y - kept[i].y));
-    const med = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 4)] : 0;
-    const paras = []; let cur = '';
-    kept.forEach((l, i) => {
-      const gap = i ? Math.abs(kept[i - 1].y - l.y) : 0;
-      if (cur && med && gap > med * 1.5) { paras.push(cur); cur = ''; }
-      cur = cur ? (cur.endsWith('-') ? cur.slice(0, -1) + l.t : cur + ' ' + l.t) : l.t;
+    const [vx0, vy0, vx1, vy1] = page.view, W = vx1 - vx0, H = vy1 - vy0;
+    const items = tc.items.filter(it => 'str' in it && it.str.trim()).map(it => {
+      const x0 = it.transform[4], h = Math.abs(it.transform[3]) || it.height || 10;
+      return { str: it.str, x0, x1: x0 + (it.width || it.str.length * h * 0.5), y: it.transform[5], h };
     });
-    if (cur) paras.push(cur);
-    if (paras.length) sections.push({ title: 'Page ' + p, paras });
+    const textChars = items.reduce((n, it) => n + it.str.trim().length, 0);
+    let rects = [];
+    try { rects = imageRects(await page.getOperatorList()); } catch {}
+    rects = rects.map(r => ({ x0: Math.max(vx0, r.x0), x1: Math.min(vx1, r.x1), y0: Math.max(vy0, r.y0), y1: Math.min(vy1, r.y1) }))
+      .filter(r => r.x1 - r.x0 >= 50 && r.y1 - r.y0 >= 50 && (r.x1 - r.x0) * (r.y1 - r.y0) >= W * H * 0.03);
+    // A picture that fills the page behind real text is a scanned page with a text layer: the text is already here.
+    rects = rects.filter(r => !((r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.8 && textChars > 200));
+
+    // A scanned page with no text layer: read its words from the picture.
+    if (!textChars && rects.length) {
+      busy('Reading the words on page ' + p + ' of ' + pdf.numPages + '…');
+      const full = rects.find(r => (r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.6);
+      if (full) {
+        const [canvas] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }]);
+        const paras = (await OCR.read(canvas)) || [];
+        if (paras.join(' ').length > 160) {
+          for (const t of paras) {
+            const m = CHAPTER_LINE.exec(t);
+            if (m && t.length < 40) { const label = titleCase(t); if (label !== chapter) { chapter = label; blocks.push({ chap: label }); } continue; }
+            if (/^\d{1,4}$/.test(t)) continue;
+            if (lastPara && !/[.!?:"”']$/.test(lastPara.text) && /^[a-z]/.test(t)) lastPara.text += ' ' + t;
+            else blocks.push(lastPara = { text: t, page: p });
+          }
+          continue;
+        }
+      }
+    }
+
+    const gx = findGutter(items, vx0, W);
+    const colOf = (x0, x1) => gx == null ? 0 : x1 <= gx + 4 ? 0 : x0 >= gx - 4 ? 1 : -1;
+    const byCol = { '-1': [], 0: [], 1: [] };
+    for (const it of items) byCol[colOf(it.x0, it.x1)].push(it);
+    const L = { full: buildLines(byCol['-1']), c0: buildLines(byCol[0]), c1: buildLines(byCol[1]) };
+    // Running heads printed across the top of both columns on the same line ("El Istakhlaag ... The Creation",
+    // "Tablet 1:19 ... Tablet 1:33") are read once, before the columns, not glued onto the verses.
+    const heads = [];
+    const colW = ls => Math.max(1, ...ls.map(l => l.x1 - l.x0)), w0 = colW(L.c0), w1 = colW(L.c1);
+    const short = (l, w) => l.t.length < 32 && l.x1 - l.x0 < w * 0.6;
+    while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= 2 && short(L.c0[0], w0) && short(L.c1[0], w1)) {
+      const a = L.c0.shift(), b = L.c1.shift(); heads.push({ ...a, t: a.t + ' — ' + b.t, head: true });
+    }
+
+    // Pictures: crop them from the rendered page, take the caption printed under them and any words drawn on them.
+    const figs = [];
+    if (rects.length) {
+      const crops = await renderCrops(page, rects);
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i], col = colOf(r.x0, r.x1), stream = col < 0 ? L.full : col === 0 ? L.c0 : L.c1;
+        const mid = (r.x0 + r.x1) / 2, rw = r.x1 - r.x0, used = new Set();
+        const inside = [...L.full, ...L.c0, ...L.c1].filter(l => l.y <= r.y1 && l.y >= r.y0 && l.x0 >= r.x0 - 4 && l.x1 <= r.x1 + 4);
+        inside.forEach(l => used.add(l));
+        const below = [...L.full, ...stream].filter(l => !used.has(l) && l.y < r.y0).sort((a, b) => b.y - a.y);
+        const caption = []; let lastY = r.y0;
+        for (const l of below) {
+          const gap = lastY - l.y, centred = Math.abs((l.x0 + l.x1) / 2 - mid) < rw * 0.18;
+          if (gap > (caption.length ? l.h * 1.9 : 38) || l.t.length > 80 || !centred || caption.length >= 4 || /^\d{1,4}$/.test(l.t)) break;
+          caption.push(l); used.add(l); lastY = l.y;
+        }
+        let words = inside.map(l => l.t);
+        if (words.join(' ').length < 20 && crops[i].width * crops[i].height >= 150 * 150) {
+          busy('Reading the words in illustration ' + (figN + 1) + ' (page ' + p + ')…');
+          words = (await OCR.read(crops[i])) || words;
+        }
+        const id = key + '#' + (++figN);
+        await saveImage(id, await toJPEG(crops[i]));
+        figs.push({ y: r.y1, col, used, block: { fig: id, w: crops[i].width, h: crops[i].height, caption: caption.map(l => l.t), words, page: p } });
+      }
+    }
+    const used = new Set(figs.flatMap(f => [...f.used]));
+    // Reading order: full-width lines above the columns, the left column, the right column, then anything below.
+    const entries = col => [...(col === -1 ? L.full : col === 0 ? L.c0 : L.c1).filter(l => !used.has(l)).map(l => ({ y: l.y, line: l })),
+      ...figs.filter(f => f.col === col).map(f => ({ y: f.y, fig: f.block }))].sort((a, b) => b.y - a.y);
+    const colTop = Math.max(-Infinity, ...[...L.c0, ...L.c1].map(l => l.y));
+    const full = entries(-1), streams = [full.filter(e => e.y >= colTop - 1), heads.map(l => ({ y: l.y, line: l })), entries(0), entries(1), full.filter(e => e.y < colTop - 1)];
+    for (const st of streams) {
+      let prevY = null, cur = null;
+      const gaps = []; for (let i = 1; i < st.length; i++) if (st[i].line && st[i - 1].line) gaps.push(st[i - 1].y - st[i].y);
+      const med = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 4)] : 0;
+      for (const e of st) {
+        if (e.fig) { blocks.push(e.fig); cur = null; lastPara = null; prevY = null; continue; }
+        const t = e.line.t;
+        if (/^\d{1,4}$/.test(t)) continue; // page numbers
+        if (CHAPTER_LINE.test(t) && t.length < 40) { const label = titleCase(t); if (label !== chapter) { chapter = label; blocks.push({ chap: label }); lastPara = null; } cur = null; prevY = null; continue; }
+        if (e.line.head) { blocks.push({ text: t, page: p }); cur = null; prevY = null; continue; } // a running head never swallows the next verse
+        const breakHere = !cur || (med && prevY - e.y > med * 1.5) || VERSE_START.test(t);
+        if (!cur && lastPara && prevY === null && !VERSE_START.test(t) && !/[.!?:"”']$/.test(lastPara.text)) cur = lastPara; // carried over from the last column or page
+        else if (breakHere) { cur = { text: '', page: p }; blocks.push(cur); }
+        cur.text = !cur.text ? t : cur.text.endsWith('-') ? cur.text.slice(0, -1) + t : cur.text + ' ' + t;
+        lastPara = cur; prevY = e.y;
+      }
+    }
   }
-  if (!sections.length) throw new Error('This PDF has no selectable text. It may be scanned pages, which can’t be read aloud yet.');
+  await OCR.close();
+  // Sections: the book's own chapters when it has them, otherwise groups of ten pages.
+  const sections = []; let sec = null;
+  const hasChapters = blocks.some(b => b.chap);
+  for (const b of blocks) {
+    if (b.chap) { sec = { title: b.chap, paras: [] }; sections.push(sec); continue; }
+    if (!hasChapters) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(pdf.numPages, g * 10 + 10), paras: [] }; sections.push(sec); } }
+    if (!sec) { sec = { title: 'Opening Pages', paras: [] }; sections.push(sec); }
+    sec.paras.push(b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words } : b.text);
+  }
+  sections.forEach(s => delete s.g);
+  if (!sections.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
   let title = file.name.replace(/\.pdf$/i, '');
-  try { const meta = await pdf.getMetadata(); if (meta?.info?.Title && meta.info.Title.trim().length > 2) title = meta.info.Title.trim(); } catch {}
-  return { title, sections };
+  try { const meta = await pdf.getMetadata(); if (meta?.info?.Title && meta.info.Title.trim().length > 2 && !/^(untitled|microsoft word|document\d*)/i.test(meta.info.Title.trim())) title = meta.info.Title.trim(); } catch {}
+  return { title, sections: sections.filter(s => s.paras.length) };
 }
 
-async function readEPUB(file) {
+async function readEPUB(file, key) {
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const xml = s => new DOMParser().parseFromString(s, 'application/xml');
@@ -1251,29 +1504,54 @@ async function readEPUB(file) {
   const manifest = {};
   opf.querySelectorAll('manifest > item').forEach(it => manifest[it.getAttribute('id')] = it.getAttribute('href'));
   const title = (opf.getElementsByTagNameNS('*', 'title')[0]?.textContent || file.name.replace(/\.epub$/i, '')).trim();
-  const resolve = href => { const parts = (dir + decodeURIComponent(href.split('#')[0])).split('/'), out = []; for (const p of parts) { if (p === '..') out.pop(); else if (p !== '.') out.push(p); } return out.join('/'); };
+  const norm = path => { const out = []; for (const p of path.split('/')) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); } return out.join('/'); };
+  const resolve = href => norm(dir + decodeURIComponent(href.split('#')[0]));
+  const near = (from, href) => norm(from.slice(0, from.lastIndexOf('/') + 1) + decodeURIComponent(href.split('#')[0]));
+  const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml' };
   const BLOCK = 'p,h1,h2,h3,h4,h5,h6,li,blockquote,div,section,article,pre,dd,dt,td,figcaption';
-  const sections = [];
+  const sections = []; let figN = 0;
   const items = [...opf.querySelectorAll('spine > itemref')];
   for (let k = 0; k < items.length; k++) {
     busy('Reading chapter ' + (k + 1) + ' of ' + items.length + '…');
     const href = manifest[items[k].getAttribute('idref')]; if (!href) continue;
-    const f = zip.file(resolve(href)); if (!f) continue;
+    const path = resolve(href), f = zip.file(path); if (!f) continue;
     const src = await f.async('string');
     let doc = new DOMParser().parseFromString(src, 'application/xhtml+xml');
     if (doc.querySelector('parsererror') || !doc.body) doc = new DOMParser().parseFromString(src, 'text/html');
     const body = doc.body || doc.documentElement;
     body.querySelectorAll('script,style,nav').forEach(n => n.remove());
     const paras = []; let head = null;
-    body.querySelectorAll(BLOCK).forEach(el => {
-      if (el.querySelector(BLOCK)) return; // only leaf blocks, so nested divs aren't read twice
-      const t = el.textContent.replace(/\s+/g, ' ').trim(); if (!t) return;
-      if (/^h[1-6]$/i.test(el.localName) && !head) { head = t; return; }
+    for (const el of body.querySelectorAll(BLOCK + ',img,image')) {
+      if (el.localName === 'img' || el.localName === 'image') {
+        const s = el.getAttribute('src') || el.getAttribute('href') || el.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+        const zf = s && !/^data:|^https?:/.test(s) ? zip.file(near(path, s)) : null; if (!zf) continue;
+        const ext = (s.split('.').pop() || '').toLowerCase().split(/[?#]/)[0];
+        const blob = new Blob([await zf.async('arraybuffer')], { type: MIME[ext] || 'image/jpeg' });
+        let bmp = null; try { bmp = await createImageBitmap(blob); } catch {}
+        if (bmp && (bmp.width < 120 || bmp.height < 120)) continue; // ornaments and bullets
+        let words = [];
+        if (bmp) {
+          busy('Reading the words in illustration ' + (figN + 1) + '…');
+          const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+          c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+          const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+          words = (await OCR.read(c)) || [];
+        }
+        const alt = (el.getAttribute('alt') || el.getAttribute('title') || '').trim();
+        const id = key + '#' + (++figN);
+        await saveImage(id, blob);
+        paras.push({ fig: id, w: bmp?.width, h: bmp?.height, caption: alt && !/\.(jpe?g|png|gif|svg|webp)$/i.test(alt) && !/^(image|img|cover|figure)?\s*\d*$/i.test(alt) ? [alt] : [], words });
+        continue;
+      }
+      if (el.querySelector(BLOCK)) continue; // only leaf blocks, so nested divs aren't read twice
+      const t = el.textContent.replace(/\s+/g, ' ').trim(); if (!t) continue;
+      if (/^h[1-6]$/i.test(el.localName) && !head) { head = t; continue; }
       paras.push(t);
-    });
+    }
     if (!paras.length && body.textContent.trim()) paras.push(...body.textContent.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean));
     if (paras.length) sections.push({ title: head || 'Part ' + (sections.length + 1), paras });
   }
+  await OCR.close();
   return { title, sections };
 }
 
@@ -1295,13 +1573,14 @@ async function openFile(file) {
   try {
     const ext = file.name.split('.').pop().toLowerCase();
     let b;
-    if (ext === 'pdf' || file.type === 'application/pdf') b = await readPDF(file);
-    else if (ext === 'epub') b = await readEPUB(file);
+    const key = file.name + ':' + file.size;
+    await Library.removeImages(key); freshImages.clear();
+    if (ext === 'pdf' || file.type === 'application/pdf') b = await readPDF(file, key);
+    else if (ext === 'epub') b = await readEPUB(file, key);
     else if (ext === 'txt' || ext === 'md' || file.type.startsWith('text/')) b = readText(file.name, await file.text());
     else throw new Error('That file type isn’t supported. Open a PDF, EPUB or plain text file.');
     busy('Finding the mood of each passage…');
     await new Promise(r => setTimeout(r, 30));
-    const key = file.name + ':' + file.size;
     const raw = { key, title: b.title, sections: JSON.parse(JSON.stringify(b.sections)), added: Date.now() };
     loadBook(b, key);
     const saved = await Library.put(raw);
@@ -1360,19 +1639,26 @@ const Library = (() => {
   function db() {
     if (!dbp) dbp = new Promise((res, rej) => {
       try {
-        const r = indexedDB.open('undertone', 1);
-        r.onupgradeneeded = () => r.result.createObjectStore('books', { keyPath: 'key' });
+        const r = indexedDB.open('undertone', 2);
+        r.onupgradeneeded = () => {
+          const d = r.result;
+          if (!d.objectStoreNames.contains('books')) d.createObjectStore('books', { keyPath: 'key' });
+          if (!d.objectStoreNames.contains('images')) d.createObjectStore('images', { keyPath: 'id' }); // pictures from books, by "<book key>#<n>"
+        };
         r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
       } catch (e) { rej(e); }
     });
     return dbp;
   }
-  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('books', mode), st = t.objectStore('books'); const r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); };
+  const tx = async (mode, fn, store = 'books') => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction(store, mode), st = t.objectStore(store); const r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); };
   return {
     async put(b) { try { await tx('readwrite', st => st.put(b)); return true; } catch { return false; } },
     async get(k) { try { return await tx('readonly', st => st.get(k)); } catch { return null; } },
     async all() { try { return (await tx('readonly', st => st.getAll())) || []; } catch { return []; } },
-    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} }
+    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} await this.removeImages(k); },
+    async putImage(id, blob) { try { const buf = await blob.arrayBuffer(); await tx('readwrite', st => st.put({ id, buf, type: blob.type }), 'images'); } catch {} },
+    async getImage(id) { try { return await tx('readonly', st => st.get(id), 'images'); } catch { return null; } },
+    async removeImages(k) { try { await tx('readwrite', st => st.delete(IDBKeyRange.bound(k + '#', k + '#\uffff')), 'images'); } catch {} }
   };
 })();
 
