@@ -111,7 +111,8 @@ article {
   padding: 30px clamp(18px, 5vw, 44px) 36px;
 }
 .chap-head { text-align: center; margin: 2.6em 0 1.1em; }
-.chap-head:first-child { margin-top: .3em; }
+.blk[data-b="0"] > .chap-head:first-child { margin-top: .3em; }
+html, body, #text { overflow-anchor: none; } /* the reader keeps its own place when blocks come and go */
 .chap-no { font-family: var(--f-cap); font-size: .82rem; letter-spacing: .28em; color: var(--muted); margin-bottom: .35em; }
 .chap-head h2 { font-family: var(--f-read); font-weight: 700; font-size: 1.5rem; line-height: 1.2; text-wrap: balance; margin: 0 0 .6em; }
 .tablet-bar {
@@ -559,61 +560,128 @@ function tabletCard(si, first, last) {
   f.append(cap, q); f.insertAdjacentHTML('beforeend', SEAL); f.append(sm);
   return f;
 }
+// Long books (a 1,700-page PDF is ~40,000 sentences) are far too big to put on the page at once: the iPhone's
+// web view runs out of memory and gets shut down. So the book is cut into blocks of a few hundred sentences,
+// and only the blocks around where you're reading are on the page. More are added as you scroll.
+const BLOCK = 240, KEEP_BLOCKS = 5, MARGIN = 1600;
+let blocks = [], mounted = [], curEl = null; // mounted: block indexes on the page, in order
 function render() {
   const art = $('#text'); art.textContent = '';
-  const frag = document.createDocumentFragment();
   const chap = $('#chap'); chap.textContent = '';
-  sentences = [];
+  sentences = []; blocks = []; mounted = []; curEl = null;
   kept = new Set(store.get('kept:' + book.key, []));
-  let prevMood = null;
+  let prevMood = null, cur = null;
+  const newBlock = si => { cur = { si, items: [], from: sentences.length }; blocks.push(cur); };
   book.sections.forEach((sec, si) => {
-    sec.first = sentences.length;
-    const head = document.createElement('header'); head.className = 'chap-head';
-    // A book's own "Chapter One" becomes the small heading; otherwise number the sections ourselves.
-    const own = /^chapter\s/i.test(sec.title), bookHasOwn = book.sections.some(x => /^chapter\s/i.test(x.title));
-    const no = document.createElement('div'); no.className = 'chap-no'; no.textContent = own ? sec.title.toUpperCase() : bookHasOwn ? '' : 'CHAPTER ' + chapWord(si + 1); no.hidden = !no.textContent;
-    const h = document.createElement('h2'); h.textContent = own ? '' : sec.title; h.id = 'sec' + si; h.hidden = own;
-    const bar = document.createElement('div'); bar.className = 'tablet-bar';
-    const l = document.createElement('span'); l.textContent = 'Tablet ' + (si + 1) + ':1';
-    const lastV = sec.paras.reduce((n, p, i) => p.vn || (p.fig ? n : i + 1), 0) || sec.paras.length;
-    const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + lastV;
-    bar.append(l, r); head.append(no, h, bar); frag.appendChild(head);
+    sec.first = sentences.length; newBlock(si);
+    cur.items.push({ t: 'head', si });
     const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; chap.appendChild(o);
     sec.paras.forEach((p, pi) => {
-      if (p.mood !== prevMood) {
-        const d = document.createElement('div'); d.className = 'shift'; d.style.setProperty('--c', MOODS[p.mood].color);
-        d.append(ANKH(), ' The music turns ' + MOODS[p.mood].label.toLowerCase() + ' ', ANKH()); frag.appendChild(d); prevMood = p.mood;
-      }
-      if (p.fig) {
-        const fg = document.createElement('figure'); fg.className = 'plate';
-        const im = document.createElement('img'); im.dataset.img = p.fig; im.alt = (p.caption || []).join(' ') || 'Illustration'; im.decoding = 'async';
-        if (p.w && p.h) { im.width = p.w; im.height = p.h; }
-        fg.appendChild(im); frag.appendChild(fg);
-        if (!p.text) return;
-      }
-      const verse = p.vn || pi + 1;
-      const el = document.createElement('p'); el.style.setProperty('--pm', MOODS[p.mood].color);
-      if (p.fig) el.className = 'figtext';
-      else { const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = verse; el.appendChild(vn); }
-      const parts = splitSentences(p.text);
+      if (sentences.length - cur.from >= BLOCK) newBlock(si);
+      if (p.mood !== prevMood) { cur.items.push({ t: 'shift', mood: p.mood }); prevMood = p.mood; }
+      if (p.fig) { cur.items.push({ t: 'fig', p }); if (!p.text) return; }
+      const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
       let inQuote = false;
-      parts.forEach((s, k) => {
-        const sp = document.createElement('span'); sp.className = 's'; sp.dataset.i = sentences.length;
-        if (kept.has(sentences.length)) sp.classList.add('kept');
-        const r = segment(s, inQuote); inQuote = r.inQuote;
-        for (const g of r.segs) { if (g.dialog) { const q = document.createElement('span'); q.className = 'dlg'; q.textContent = g.text; sp.appendChild(q); } else sp.append(g.text); }
-        el.appendChild(sp); if (k) el.insertBefore(document.createTextNode(' '), sp);
-        sentences.push({ text: s, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: sp, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
+      parts.forEach((t, k) => {
+        const r = segment(t, inQuote); inQuote = r.inQuote;
+        sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
       });
-      frag.appendChild(el);
+      cur.items.push({ t: 'para', fig: !!p.fig, mood: p.mood, verse, first, last: sentences.length - 1 });
     });
-    if (sentences.length - sec.first >= 8) { const c = tabletCard(si, sec.first, sentences.length - 1); if (c) frag.appendChild(c); }
+    if (sentences.length - sec.first >= 8) cur.items.push({ t: 'card', si });
   });
+  blocks.forEach((bl, bi) => { bl.to = (blocks[bi + 1]?.from ?? sentences.length) - 1; });
+  blocks[blocks.length - 1].items.push({ t: 'end' });
   book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
-  const end = document.createElement('div'); end.className = 'endmark'; end.append(ANKH(), '  THE END  ', ANKH()); frag.appendChild(end);
-  art.appendChild(frag);
-  art.querySelectorAll('img[data-img]').forEach(im => imgObserver ? imgObserver.observe(im) : fillImage(im));
+  const top = document.createElement('div'); top.id = 'blkTop';
+  const bottom = document.createElement('div'); bottom.id = 'blkEnd';
+  art.append(top, bottom);
 }
+// Make the page for one block.
+function buildBlock(bi) {
+  const bl = blocks[bi], el = document.createElement('div'); el.className = 'blk'; el.dataset.b = bi;
+  const bookHasOwn = book.sections.some(x => /^chapter\s/i.test(x.title));
+  for (const it of bl.items) {
+    if (it.t === 'head') {
+      const sec = book.sections[it.si], si = it.si;
+      const head = document.createElement('header'); head.className = 'chap-head';
+      // A book's own "Chapter One" becomes the small heading; otherwise number the sections ourselves.
+      const own = /^chapter\s/i.test(sec.title);
+      const no = document.createElement('div'); no.className = 'chap-no'; no.textContent = own ? sec.title.toUpperCase() : bookHasOwn ? '' : 'CHAPTER ' + chapWord(si + 1); no.hidden = !no.textContent;
+      const h = document.createElement('h2'); h.textContent = own ? '' : sec.title; h.id = 'sec' + si; h.hidden = own;
+      const bar = document.createElement('div'); bar.className = 'tablet-bar';
+      const l = document.createElement('span'); l.textContent = 'Tablet ' + (si + 1) + ':1';
+      const lastV = sec.paras.reduce((n, p, i) => p.vn || (p.fig ? n : i + 1), 0) || sec.paras.length;
+      const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + lastV;
+      bar.append(l, r); head.append(no, h, bar); el.appendChild(head);
+    } else if (it.t === 'shift') {
+      const d = document.createElement('div'); d.className = 'shift'; d.style.setProperty('--c', MOODS[it.mood].color);
+      d.append(ANKH(), ' The music turns ' + MOODS[it.mood].label.toLowerCase() + ' ', ANKH()); el.appendChild(d);
+    } else if (it.t === 'fig') {
+      const p = it.p, fg = document.createElement('figure'); fg.className = 'plate';
+      const im = document.createElement('img'); im.dataset.img = p.fig; im.alt = (p.caption || []).join(' ') || 'Illustration'; im.decoding = 'async';
+      if (p.w && p.h) { im.width = p.w; im.height = p.h; }
+      fg.appendChild(im); el.appendChild(fg);
+    } else if (it.t === 'para') {
+      const pe = document.createElement('p'); pe.style.setProperty('--pm', MOODS[it.mood].color);
+      if (it.fig) pe.className = 'figtext';
+      else { const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = it.verse; pe.appendChild(vn); }
+      for (let i = it.first; i <= it.last; i++) {
+        const s = sentences[i], sp = document.createElement('span'); sp.className = 's'; sp.dataset.i = i;
+        if (kept.has(i)) sp.classList.add('kept');
+        if (i === idx) { sp.classList.add('now'); curEl = sp; }
+        for (const g of s.all) { if (g.dialog) { const q = document.createElement('span'); q.className = 'dlg'; q.textContent = g.text; sp.appendChild(q); } else sp.append(g.text); }
+        if (i > it.first) pe.append(' ');
+        pe.appendChild(sp); s.el = sp;
+      }
+      el.appendChild(pe);
+    } else if (it.t === 'card') {
+      const sec = book.sections[it.si], last = (book.sections[it.si + 1]?.first ?? sentences.length) - 1;
+      const c = tabletCard(it.si, sec.first, last); if (c) el.appendChild(c);
+    } else if (it.t === 'end') {
+      const end = document.createElement('div'); end.className = 'endmark'; end.append(ANKH(), '  THE END  ', ANKH()); el.appendChild(end);
+    }
+  }
+  el.querySelectorAll('img[data-img]').forEach(im => imgObserver ? imgObserver.observe(im) : fillImage(im));
+  return el;
+}
+// Take a block off the page and let go of its pictures.
+function dropBlock(bi) {
+  const el = $('#text').querySelector('.blk[data-b="' + bi + '"]'); if (!el) return 0;
+  const h = el.offsetHeight;
+  el.querySelectorAll('img[data-img]').forEach(im => { imgObserver?.unobserve(im); releaseImage(im.dataset.img); });
+  for (let i = blocks[bi].from; i <= blocks[bi].to; i++) { if (sentences[i].el === curEl) curEl = null; sentences[i].el = null; }
+  el.remove();
+  return h;
+}
+// Put the blocks around block `bi` on the page (replacing whatever was there).
+function mountAround(bi) {
+  for (const b of mounted.slice()) dropBlock(b);
+  mounted = [];
+  const end = $('#blkEnd');
+  for (let b = Math.max(0, bi - 1); b <= Math.min(blocks.length - 1, bi + 1); b++) { $('#text').insertBefore(buildBlock(b), end); mounted.push(b); }
+}
+// While scrolling, add the next or previous block before you reach the edge, and drop far-away ones.
+// Adding or dropping a block above the screen would shift the words you're reading, so the page is scrolled
+// back by exactly that much (measured on a block that stays). Browsers that do this themselves are told not to.
+function fillBlocks() {
+  if (!mounted.length) return;
+  const art = $('#text'), top = $('#blkTop'), end = $('#blkEnd');
+  const blockEl = b => art.querySelector('.blk[data-b="' + b + '"]');
+  const steady = (anchorB, change) => { const a = blockEl(anchorB), y0 = a.getBoundingClientRect().top; change(); const dy = a.getBoundingClientRect().top - y0; if (dy) scrollBy(0, dy); };
+  for (let guard = 0; guard < 4; guard++) {
+    const last = mounted[mounted.length - 1], first = mounted[0];
+    if (last < blocks.length - 1 && end.getBoundingClientRect().top < innerHeight + MARGIN) {
+      art.insertBefore(buildBlock(last + 1), end); mounted.push(last + 1);
+      if (mounted.length > KEEP_BLOCKS) steady(mounted[1], () => dropBlock(mounted.shift()));
+    } else if (first > 0 && top.getBoundingClientRect().bottom > -MARGIN) {
+      steady(first, () => { top.after(buildBlock(first - 1)); mounted.unshift(first - 1); });
+      if (mounted.length > KEEP_BLOCKS) dropBlock(mounted.pop());
+    } else break;
+  }
+}
+let fillPending = false;
+addEventListener('scroll', () => { if (fillPending) return; fillPending = true; requestAnimationFrame(() => { fillPending = false; fillBlocks(); }); }, { passive: true });
 // Pictures load as they come near the screen, so long illustrated books stay light.
 function fillImage(im) { imageURL(im.dataset.img).then(u => { if (u) im.src = u; }); }
 const imgObserver = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { imgObserver.unobserve(e.target); fillImage(e.target); } }), { rootMargin: '1200px 0px' }) : null;
@@ -625,8 +693,8 @@ function toast(msg, ms = 1800) {
 }
 function toggleKeep(i) {
   const s = sentences[i]; if (!s) return;
-  if (kept.has(i)) { kept.delete(i); s.el.classList.remove('kept'); toast('Let go'); }
-  else { kept.add(i); s.el.classList.add('kept'); toast('Kept · Tablet ' + (s.si + 1) + ':' + s.vn); }
+  if (kept.has(i)) { kept.delete(i); s.el?.classList.remove('kept'); toast('Let go'); }
+  else { kept.add(i); s.el?.classList.add('kept'); toast('Kept · Tablet ' + (s.si + 1) + ':' + s.vn); }
   store.set('kept:' + book.key, [...kept].sort((a, b) => a - b));
   syncKeep();
   // The section's closing card shows the line you kept.
@@ -710,10 +778,10 @@ addEventListener('resize', () => drawMap());
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => drawMap());
 
 /* ---------------- Current sentence ---------------- */
-let curEl = null;
 function setCurrent(i, forceScroll) {
   idx = i; const s = sentences[i]; if (!s) return;
   if (curEl) curEl.classList.remove('now');
+  if (!s.el) { mountAround(s.b); forceScroll = true; } // jumped somewhere that isn't on the page yet
   curEl = s.el; curEl.classList.add('now');
   if ($('#follow').checked || forceScroll) {
     const r = curEl.getBoundingClientRect(), vh = innerHeight;
@@ -1344,6 +1412,7 @@ function prepare(src) {
 }
 const imageURLs = new Map();
 const saveImage = (id, blob) => Library.putImage(id, blob);
+function releaseImage(id) { const u = imageURLs.get(id); if (u && typeof u === 'string') { URL.revokeObjectURL(u); imageURLs.delete(id); } }
 async function imageURL(id) {
   if (imageURLs.has(id)) return imageURLs.get(id);
   const r = await Library.getImage(id); if (!r) return null;
