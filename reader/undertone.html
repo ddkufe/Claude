@@ -612,9 +612,9 @@ function fillImage(im) { imageURL(im.dataset.img).then(u => { if (u) im.src = u;
 const imgObserver = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { imgObserver.unobserve(e.target); fillImage(e.target); } }), { rootMargin: '1200px 0px' }) : null;
 
 /* ---------------- Keeping lines ---------------- */
-function toast(msg) {
+function toast(msg, ms = 1800) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 1800);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), ms);
 }
 function toggleKeep(i) {
   const s = sentences[i]; if (!s) return;
@@ -766,22 +766,50 @@ function loadVoices() {
   for (const [label, list] of groups) {
     if (!list.length) continue;
     const g = document.createElement('optgroup'); g.label = label;
-    list.forEach(v => { const o = document.createElement('option'); o.value = v.voiceURI; o.textContent = v.name.replace(/^(Microsoft|Google)\s+/i, '$1 ') + ' · ' + v.lang; g.appendChild(o); });
+    list.forEach(v => { const o = document.createElement('option'); o.value = v.voiceURI; o.textContent = voiceLabel(v); g.appendChild(o); });
     sel.appendChild(g);
   }
   voice = voices.find(v => v.voiceURI === saved) || voices[0];
+  // The saved ElevenLabs voice is missing when the app couldn't reach ElevenLabs at start (no signal).
+  // Use an iPhone voice meanwhile, keep the reader's choice, and ask again so it comes back by itself.
+  if (saved && /^eleven:/.test(saved) && voice.voiceURI !== saved && window.__UNDERTONE_NATIVE && (loadVoices.tries = (loadVoices.tries || 0) + 1) <= 6) {
+    clearTimeout(loadVoices.t);
+    loadVoices.t = setTimeout(() => window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'voices' })), 15000);
+  }
   sel.value = voice.voiceURI;
   $('#voiceTip').hidden = mine.some(isGood);
   fillDialogSelect();
 }
+// ElevenLabs voices that failed, and why, so the list and the screen say so instead of switching voices silently.
+const voiceTrouble = new Map();
+function voiceLabel(v) {
+  const t = voiceTrouble.get(v.voiceURI);
+  return v.name.replace(/^(Microsoft|Google)\s+/i, '$1 ') + ' · ' + v.lang + (t ? ' · not working right now' : '');
+}
+function phoneVoice() { return voices.find(v => !/^eleven:/.test(v.voiceURI) && isGood(v)) || voices.find(v => !/^eleven:/.test(v.voiceURI)) || null; }
+// Put a voice on an utterance. For an ElevenLabs voice also name the iPhone voice to read with if ElevenLabs can't.
+function useVoice(u, v) {
+  if (!v) return;
+  u.voice = v; u.lang = v.lang;
+  if (/^eleven:/.test(v.voiceURI)) u.fallback = phoneVoice()?.voiceURI || null;
+}
+window.__voiceProblem = (uri, msg, lasting) => {
+  const v = voices.find(x => x.voiceURI === uri), name = v ? v.name.replace(/\s*\(ElevenLabs\)$/, '') : 'ElevenLabs';
+  const said = voiceTrouble.get(uri);
+  if (lasting) voiceTrouble.set(uri, msg);
+  if (said === msg && lasting) return; // already told the reader
+  const fb = phoneVoice();
+  toast(name + ' isn\'t working: ' + msg + '. Reading with ' + (fb ? fb.name.replace(/\s*\(.*\)$/, '') : 'the iPhone voice') + (lasting ? ' until that\'s fixed. Pick another voice in Settings.' : ' for this line.'), 7000);
+  if (lasting) { const o = [...$('#voice').options].find(o => o.value === uri); if (o && v) o.textContent = voiceLabel(v); }
+};
 if (synth) { loadVoices(); synth.addEventListener?.('voiceschanged', loadVoices); }
-$('#voice').addEventListener('change', e => { voice = voices.find(v => v.voiceURI === e.target.value) || null; store.set('voice', e.target.value); fillDialogSelect(); if (playing) speakCurrent(); else testVoice(); });
+$('#voice').addEventListener('change', e => { voiceTrouble.delete(e.target.value); voice = voices.find(v => v.voiceURI === e.target.value) || null; store.set('voice', e.target.value); fillDialogSelect(); if (playing) speakCurrent(); else testVoice(); });
 function testVoice() {
   if (!synth) return;
   if (playing) pause();
   synth.cancel();
   const u = new Utter('This is how I will sound reading your book.');
-  if (voice) { u.voice = voice; u.lang = voice.lang; }
+  useVoice(u, voice);
   u.rate = rate; synth.speak(u);
 }
 $('#testVoice').addEventListener('click', testVoice);
@@ -791,7 +819,7 @@ $('#dvoice').addEventListener('change', e => {
   if (!synth || dialogMode === 'off') return;
   synth.cancel();
   const cv = characterVoice(), u = new Utter('“Is someone there?” This is how characters will sound.');
-  const v = cv.voice || voice; if (v) { u.voice = v; u.lang = v.lang; }
+  useVoice(u, cv.voice || voice);
   u.rate = rate; u.pitch = cv.pitch; synth.speak(u);
 });
 const rateEl = $('#rate');
@@ -839,7 +867,7 @@ function speakCurrent() {
     const u = new Utter(g.text.trim());
     const cv = g.dialog ? characterVoice() : null;
     const v = cv && cv.voice ? cv.voice : voice;
-    if (v) { u.voice = v; u.lang = v.lang; }
+    useVoice(u, v);
     u.rate = dv.rate; u.pitch = Math.min(2, dv.pitch * (cv ? cv.pitch : 1)); u.volume = 1;
     u.onend = next;
     u.onerror = e => { if (my !== token || e.error === 'interrupted' || e.error === 'canceled') return; timer = setTimeout(next, 300); };
@@ -868,7 +896,7 @@ function characterVoice() {
   if (dialogMode !== 'auto') { const v = voices.find(x => x.voiceURI === dialogMode); if (v) return { voice: v, pitch: 1 }; }
   const lang = (voice?.lang || userLang).slice(0, 2).toLowerCase();
   // Stay in the narrator's family: ElevenLabs characters for an ElevenLabs narrator, iPhone voices otherwise.
-  const fam = x => /^eleven:/.test(x.voiceURI) === /^eleven:/.test(voice?.voiceURI || '');
+  const fam = x => /^eleven:/.test(x.voiceURI) === /^eleven:/.test(voice?.voiceURI || '') && !voiceTrouble.has(x.voiceURI);
   const alt = voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang) && isGood(x))
     || voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang));
   return alt ? { voice: alt, pitch: 1 } : { voice: null, pitch: 1.18 };

@@ -23,7 +23,7 @@ export const BRIDGE_JS = `
       var id = ++seq; pending[id] = u; count++; synth.speaking = true;
       post({ type: 'speak', id: id, text: u.text, voice: u.voice ? u.voice.voiceURI : null,
              lang: u.voice ? u.voice.lang : (u.lang || null), rate: u.rate, pitch: u.pitch, volume: u.volume,
-             session: 'app' });
+             fallback: u.fallback || null, session: 'app' });
     },
     cancel: function () {
       pending = {}; count = 0; synth.speaking = false;
@@ -47,6 +47,9 @@ export const BRIDGE_JS = `
     },
     elevenState: function (hasKey, count, error) {
       if (typeof window.__elevenState === 'function') window.__elevenState(hasKey, count, error);
+    },
+    voiceProblem: function (uri, msg, lasting) {
+      if (typeof window.__voiceProblem === 'function') window.__voiceProblem(uri, msg, lasting);
     },
     status: function (msg) {
       if (typeof window.__nativeStatus === 'function') window.__nativeStatus(msg);

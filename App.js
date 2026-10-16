@@ -100,17 +100,25 @@ export default function App() {
       try { await setIsAudioActiveAsync(true); } catch {}
       if (stopToken.current !== token) return;
       if (m.voice?.startsWith(Eleven.PREFIX)) {
+        let problem = { message: 'no ElevenLabs key saved', lasting: true };
         if (Eleven.hasKey()) {
-          try {
-            const finished = await Eleven.speak(m.voice.slice(Eleven.PREFIX.length), m.text, m.rate, () => call('status', 'speaking with ElevenLabs'));
-            if (finished && stopToken.current === token) call('done', m.id);
-            return;
-          } catch (e) {
-            if (stopToken.current !== token) return;
-            call('status', `${e?.message || e}, using the iPhone voice for now`);
+          // One retry for a passing problem (weak signal in the car, a busy server) before giving up on this sentence.
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const finished = await Eleven.speak(m.voice.slice(Eleven.PREFIX.length), m.text, m.rate, () => call('status', 'speaking with ElevenLabs'));
+              if (finished && stopToken.current === token) call('done', m.id);
+              return;
+            } catch (e) {
+              if (stopToken.current !== token) return;
+              problem = { message: e?.message || String(e), lasting: !!e?.lasting };
+              if (problem.lasting) break;
+            }
           }
         }
-        m.voice = null; // no key, or ElevenLabs failed: read this sentence with the iPhone's default voice
+        // Tell the reader why, so it can say so on screen, then read this sentence with the reader's best iPhone voice.
+        call('voiceProblem', m.voice, problem.message, problem.lasting);
+        call('status', `${problem.message}, using the iPhone voice for now`);
+        m.voice = m.fallback || null;
       }
       const speakWith = (voice, retried) => {
         let started = false;

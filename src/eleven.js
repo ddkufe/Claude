@@ -25,12 +25,30 @@ export async function saveKey(key) {
 }
 export const hasKey = () => !!apiKey;
 
+// ElevenLabs' errors, in words the reader understands. `lasting` means retrying won't help (no credits left,
+// a voice the plan doesn't allow, a bad key); anything else (no signal in the car, a busy server) is worth a retry.
+function explain(status, detail) {
+  const code = String(detail?.status || detail?.code || '').toLowerCase();
+  const text = String(detail?.message || (typeof detail === 'string' ? detail : '') || '');
+  const err = (message, lasting) => Object.assign(new Error(message), { lasting, status });
+  if (code.includes('quota') || /quota|credits?/i.test(text)) return err('your ElevenLabs account has used up its characters for now', true);
+  if (status === 402 || code.includes('payment') || /upgrade|subscription|library voices/i.test(text)) return err('this ElevenLabs voice needs a paid ElevenLabs plan to use in apps', true);
+  if (status === 404 || code.includes('voice_not_found')) return err('ElevenLabs couldn\'t find this voice in your account', true);
+  if (status === 401 || status === 403) return err('ElevenLabs didn\'t accept the key' + (text ? ` (${text})` : ''), true);
+  if (status === 429) return err('ElevenLabs is busy right now', false);
+  return err(`ElevenLabs error ${status}${text ? ': ' + text : ''}`, status >= 400 && status < 500);
+}
+
 async function api(path, init = {}) {
-  const res = await fetch(API + path, { ...init, headers: { 'xi-api-key': apiKey, ...(init.headers || {}) } });
+  let res;
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), 20000); // a dropped signal in the car shouldn't hang the book
+  try { res = await fetch(API + path, { ...init, signal: ac.signal, headers: { 'xi-api-key': apiKey, ...(init.headers || {}) } }); }
+  catch { throw Object.assign(new Error('couldn\'t reach ElevenLabs (no internet?)'), { lasting: false }); }
+  finally { clearTimeout(t); }
   if (!res.ok) {
-    let detail = '';
-    try { const j = await res.json(); detail = j?.detail?.message || j?.detail?.status || JSON.stringify(j?.detail || j); } catch {}
-    throw new Error(res.status === 401 ? 'ElevenLabs didn\'t accept the key' : `ElevenLabs error ${res.status}${detail ? ': ' + detail : ''}`);
+    let detail = null;
+    try { const j = await res.json(); detail = j?.detail ?? j; } catch {}
+    throw explain(res.status, detail);
   }
   return res;
 }
