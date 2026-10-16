@@ -1,4 +1,4 @@
-import { createAudioPlayer } from 'expo-audio';
+import * as Player from './voicePlayer';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
@@ -99,24 +99,9 @@ export function audioFor(voiceId, text, speed) {
   return p;
 }
 
-let current = null;
-export function stop() {
-  if (current) { try { current.remove(); } catch {} current = null; }
-}
-// Play one sentence; resolves when it has finished.
+export const stop = Player.stop;
+// Play one sentence; resolves when it has finished. ElevenLabs sets the pace itself, in the request.
 export async function speak(voiceId, text, speed, onStart) {
   const f = await audioFor(voiceId, text, speed);
-  stop();
-  return new Promise((resolve) => {
-    const player = createAudioPlayer({ uri: f.uri });
-    current = player;
-    let started = false;
-    player.addListener('playbackStatusUpdate', (st) => {
-      if (!started && st.playing) { started = true; onStart?.(); }
-      if (st.didJustFinish) { if (current === player) stop(); resolve(true); }
-    });
-    // A stop() before the end removes the player; settle so nothing waits forever.
-    const check = setInterval(() => { if (current !== player) { clearInterval(check); resolve(false); } }, 250);
-    player.play();
-  });
+  return Player.play(f, 1, onStart);
 }

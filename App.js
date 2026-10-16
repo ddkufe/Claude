@@ -10,6 +10,14 @@ import { READER_HTML } from './src/readerHtml';
 import { BRIDGE_JS } from './src/bridge';
 import { createMusic } from './src/music';
 import * as Eleven from './src/eleven';
+import * as Speechify from './src/speechify';
+
+// Online voices the reader can add with their own API key. Their voices show up in the reader's list as '<prefix><id>'.
+const CLOUD = [
+  { svc: Eleven, name: 'ElevenLabs', keyMsg: 'elevenKey', state: 'elevenState' },
+  { svc: Speechify, name: 'Speechify', keyMsg: 'speechifyKey', state: 'speechifyState' },
+];
+const cloudFor = (voice) => CLOUD.find(c => voice?.startsWith(c.svc.PREFIX));
 
 // Play like a music or audiobook app: ignore the silent switch, keep going in the background,
 // and follow the phone's audio output (CarPlay, Bluetooth, AirPlay) for both the voice and the music.
@@ -72,10 +80,12 @@ export default function App() {
       else if (m.op === 'volume') mu.volume(m.vol);
       else if (m.op === 'mood') mu.mood(m.mood);
       else if (m.op === 'data') mu.data(m.mood, m.data);
-    } else if (m.type === 'voices' || m.type === 'elevenKey') {
-      if (m.type === 'elevenKey') {
-        try { await Eleven.saveKey(m.key); } catch (e) { call('status', `couldn't save the key (${e?.message || e})`); return; }
-      } else await Eleven.loadKey();
+    } else if (m.type === 'voices' || CLOUD.some(c => c.keyMsg === m.type)) {
+      const keyed = CLOUD.find(c => c.keyMsg === m.type);
+      if (keyed) {
+        try { await keyed.svc.saveKey(m.key); } catch (e) { call('status', `couldn't save the key (${e?.message || e})`); return; }
+      }
+      for (const c of CLOUD) if (c !== keyed) await c.svc.loadKey();
       let list = [];
       try {
         list = (await Speech.getAvailableVoicesAsync()).map(v => ({
@@ -84,28 +94,34 @@ export default function App() {
       } catch (e) {
         call('status', `couldn't list voices (${e?.message || e})`);
       }
-      let eleven = [], elevenError = null;
-      try { eleven = await Eleven.listVoices(); } catch (e) { elevenError = e?.message || String(e); }
-      call('voices', [...eleven, ...list]);
-      call('elevenState', Eleven.hasKey(), eleven.length, elevenError, await Eleven.usage());
-      call('status', elevenError ? elevenError
-        : `ready, ${list.length} iPhone voices${Eleven.hasKey() ? ` and ${eleven.length} ElevenLabs voices` : ''}`);
+      const online = [], notes = [];
+      for (const c of CLOUD) {
+        let vs = [], err = null;
+        try { vs = await c.svc.listVoices(); } catch (e) { err = e?.message || String(e); }
+        online.push(...vs);
+        call(c.state, c.svc.hasKey(), vs.length, err, c.svc.usage ? await c.svc.usage() : null);
+        notes.push(err || (c.svc.hasKey() ? `${vs.length} ${c.name} voices` : ''));
+      }
+      call('voices', [...online, ...list]);
+      call('status', [`ready, ${list.length} iPhone voices`, ...notes.filter(Boolean)].join(', '));
     } else if (m.type === 'prefetch') {
-      // Ask ElevenLabs for the next sentences while this one plays, so there's no gap between them.
+      // Ask the online voice for the next sentences while this one plays, so there's no gap between them.
       for (const t of m.items || []) {
-        if (t.voice?.startsWith(Eleven.PREFIX) && Eleven.hasKey()) Eleven.audioFor(t.voice.slice(Eleven.PREFIX.length), t.text, t.rate).catch(() => {});
+        const c = cloudFor(t.voice);
+        if (c && c.svc.hasKey()) c.svc.audioFor(t.voice.slice(c.svc.PREFIX.length), t.text, t.rate).catch(() => {});
       }
     } else if (m.type === 'speak') {
       const token = stopToken.current; // a later 'stop' makes this sentence stale
       try { await setIsAudioActiveAsync(true); } catch {}
       if (stopToken.current !== token) return;
-      if (m.voice?.startsWith(Eleven.PREFIX)) {
-        let problem = { message: 'no ElevenLabs key saved', lasting: true };
-        if (Eleven.hasKey()) {
+      const c = cloudFor(m.voice);
+      if (c) {
+        let problem = { message: `no ${c.name} key saved`, lasting: true };
+        if (c.svc.hasKey()) {
           // One retry for a passing problem (weak signal in the car, a busy server) before giving up on this sentence.
           for (let attempt = 0; attempt < 2; attempt++) {
             try {
-              const finished = await Eleven.speak(m.voice.slice(Eleven.PREFIX.length), m.text, m.rate, () => call('status', 'speaking with ElevenLabs'));
+              const finished = await c.svc.speak(m.voice.slice(c.svc.PREFIX.length), m.text, m.rate, () => call('status', `speaking with ${c.name}`));
               if (finished && stopToken.current === token) call('done', m.id);
               return;
             } catch (e) {
@@ -117,7 +133,7 @@ export default function App() {
         }
         // Tell the reader why, so it can say so on screen, then read this sentence with the reader's best iPhone voice.
         call('voiceProblem', m.voice, problem.message, problem.lasting);
-        if (problem.lasting && Eleven.hasKey()) Eleven.usage().then(u => call('elevenState', true, null, null, u));
+        if (problem.lasting && c.svc.hasKey() && c.svc.usage) c.svc.usage().then(u => call(c.state, true, null, null, u));
         call('status', `${problem.message}, using the iPhone voice for now`);
         m.voice = m.fallback || null;
       }
@@ -152,7 +168,7 @@ export default function App() {
     } else if (m.type === 'stop') {
       stopToken.current++;
       Speech.stop();
-      Eleven.stop();
+      Eleven.stop(); // the same player stops Speechify too
     }
   }, [call]);
 

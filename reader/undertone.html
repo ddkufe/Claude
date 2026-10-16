@@ -339,6 +339,10 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
         <div class="voice-row"><input id="elevenKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your ElevenLabs API key" style="flex:1 1 auto;min-width:0;background:var(--raised);border:1px solid var(--line);border-radius:3px;padding:8px 10px"><button class="btn" id="elevenSave" type="button">Save</button></div>
         <p class="tip" id="elevenTip">Your ElevenLabs voices then appear at the top of the Voice list. The key stays in your iPhone's keychain. ElevenLabs charges for each character read.</p>
       </div>
+      <div class="field" id="speechifyField" hidden><label for="speechifyKey">Speechify voices</label>
+        <div class="voice-row"><input id="speechifyKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your Speechify API key" style="flex:1 1 auto;min-width:0;background:var(--raised);border:1px solid var(--line);border-radius:3px;padding:8px 10px"><button class="btn" id="speechifySave" type="button">Save</button></div>
+        <p class="tip" id="speechifyTip">Your Speechify voices then appear at the top of the Voice list. The key stays in your iPhone's keychain. Speechify charges for each character read.</p>
+      </div>
       <div class="field"><label for="dvoice">Character voice</label><select id="dvoice"></select>
         <p class="tip">Used for anything inside quotation marks.</p>
       </div>
@@ -739,13 +743,16 @@ let dialogMode = store.get('dialogMode', 'auto');
 let voices = [], voice = null, rate = store.get('rate', 0.95), token = 0, timer = null, watchdog = null;
 // Novelty and robotic voices that ship with phones and desktops; never pick these by default.
 const JUNK = /\b(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|pipe organ|fred|junior|kathy|ralph|ralf|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley|espeak|compact)\b/i;
-const HQ = /natural|neural|premium|enhanced|online|wavenet|studio|siri|elevenlabs/i;
+const HQ = /natural|neural|premium|enhanced|online|wavenet|studio|siri|elevenlabs|speechify/i;
+// Voices read by an online service with the reader's own key (ElevenLabs, Speechify), not by the iPhone.
+const CLOUD = /^(eleven|speechify):/;
+const cloudOf = uri => (CLOUD.exec(uri || '') || [])[1] || '';
 const userLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
 function voiceRank(v) {
   let r = 0;
   if (v.lang && v.lang.toLowerCase().replace('_', '-').startsWith(userLang)) r += 20;
   if (HQ.test(v.name)) r += 10;
-  if (/\(ElevenLabs\)/.test(v.name)) r += 12; // voices from the reader's own ElevenLabs account
+  if (/\((ElevenLabs|Speechify)\)/.test(v.name)) r += 12; // voices from the reader's own ElevenLabs or Speechify account
   if (/google/i.test(v.name)) r += 6; // Chrome's Google voices are far clearer than the built-in desktop ones
   if (/samantha|daniel|karen|moira|tessa|serena|aria|jenny|guy|ava|allison|evan|zoe|nathan/i.test(v.name)) r += 4;
   if (/microsoft (david|zira|mark|hazel|george)\b(?!.*natural)/i.test(v.name)) r -= 3;
@@ -773,9 +780,9 @@ function loadVoices() {
     sel.appendChild(g);
   }
   voice = voices.find(v => v.voiceURI === saved) || voices[0];
-  // The saved ElevenLabs voice is missing when the app couldn't reach ElevenLabs at start (no signal).
+  // The saved online voice is missing when the app couldn't reach the service at start (no signal).
   // Use an iPhone voice meanwhile, keep the reader's choice, and ask again so it comes back by itself.
-  if (saved && /^eleven:/.test(saved) && voice.voiceURI !== saved && window.__UNDERTONE_NATIVE && (loadVoices.tries = (loadVoices.tries || 0) + 1) <= 6) {
+  if (saved && CLOUD.test(saved) && voice.voiceURI !== saved && window.__UNDERTONE_NATIVE && (loadVoices.tries = (loadVoices.tries || 0) + 1) <= 6) {
     clearTimeout(loadVoices.t);
     loadVoices.t = setTimeout(() => window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'voices' })), 15000);
   }
@@ -783,21 +790,21 @@ function loadVoices() {
   $('#voiceTip').hidden = mine.some(isGood);
   fillDialogSelect();
 }
-// ElevenLabs voices that failed, and why, so the list and the screen say so instead of switching voices silently.
+// Online voices that failed, and why, so the list and the screen say so instead of switching voices silently.
 const voiceTrouble = new Map();
 function voiceLabel(v) {
   const t = voiceTrouble.get(v.voiceURI);
   return v.name.replace(/^(Microsoft|Google)\s+/i, '$1 ') + ' · ' + v.lang + (t ? ' · not working right now' : '');
 }
-function phoneVoice() { return voices.find(v => !/^eleven:/.test(v.voiceURI) && isGood(v)) || voices.find(v => !/^eleven:/.test(v.voiceURI)) || null; }
-// Put a voice on an utterance. For an ElevenLabs voice also name the iPhone voice to read with if ElevenLabs can't.
+function phoneVoice() { return voices.find(v => !CLOUD.test(v.voiceURI) && isGood(v)) || voices.find(v => !CLOUD.test(v.voiceURI)) || null; }
+// Put a voice on an utterance. For an online voice also name the iPhone voice to read with if the service can't.
 function useVoice(u, v) {
   if (!v) return;
   u.voice = v; u.lang = v.lang;
-  if (/^eleven:/.test(v.voiceURI)) u.fallback = phoneVoice()?.voiceURI || null;
+  if (CLOUD.test(v.voiceURI)) u.fallback = phoneVoice()?.voiceURI || null;
 }
 window.__voiceProblem = (uri, msg, lasting) => {
-  const v = voices.find(x => x.voiceURI === uri), name = v ? v.name.replace(/\s*\(ElevenLabs\)$/, '') : 'ElevenLabs';
+  const v = voices.find(x => x.voiceURI === uri), name = v ? v.name.replace(/\s*\((ElevenLabs|Speechify)\)$/, '') : 'This voice';
   const said = voiceTrouble.get(uri);
   if (lasting) voiceTrouble.set(uri, msg);
   if (said === msg && lasting) return; // already told the reader
@@ -882,14 +889,14 @@ function speakCurrent() {
   next();
   prefetchAhead(idx);
 }
-// ElevenLabs voices are fetched over the internet; ask the app for the next two sentences early so they play without a gap.
+// Online voices are fetched over the internet; ask the app for the next two sentences early so they play without a gap.
 function prefetchAhead(from) {
   if (!window.__UNDERTONE_NATIVE) return;
   const items = [];
   for (let i = from + 1; i <= Math.min(sentences.length - 1, from + 2); i++) {
     const s = sentences[i], dv = delivery(i);
     const segs = dialogMode === 'off' || !s.segs.length ? [{ text: s.text, dialog: false }] : s.segs;
-    for (const g of segs) { const cv = g.dialog ? characterVoice() : null, v = cv && cv.voice ? cv.voice : voice; if (v && /^eleven:/.test(v.voiceURI)) items.push({ voice: v.voiceURI, text: g.text.trim(), rate: dv.rate }); }
+    for (const g of segs) { const cv = g.dialog ? characterVoice() : null, v = cv && cv.voice ? cv.voice : voice; if (v && CLOUD.test(v.voiceURI)) items.push({ voice: v.voiceURI, text: g.text.trim(), rate: dv.rate }); }
   }
   if (items.length) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'prefetch', items }));
 }
@@ -899,8 +906,8 @@ function characterVoice() {
   if (dialogMode === 'pitch') return { voice: null, pitch: 1.18 };
   if (dialogMode !== 'auto') { const v = voices.find(x => x.voiceURI === dialogMode); if (v) return { voice: v, pitch: 1 }; }
   const lang = (voice?.lang || userLang).slice(0, 2).toLowerCase();
-  // Stay in the narrator's family: ElevenLabs characters for an ElevenLabs narrator, iPhone voices otherwise.
-  const fam = x => /^eleven:/.test(x.voiceURI) === /^eleven:/.test(voice?.voiceURI || '') && !voiceTrouble.has(x.voiceURI);
+  // Stay in the narrator's family: ElevenLabs characters for an ElevenLabs narrator, Speechify for Speechify, iPhone voices otherwise.
+  const fam = x => cloudOf(x.voiceURI) === cloudOf(voice?.voiceURI) && !voiceTrouble.has(x.voiceURI);
   const alt = voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang) && isGood(x))
     || voices.find(x => x !== voice && x.voiceURI !== voice?.voiceURI && fam(x) && x.lang && x.lang.toLowerCase().startsWith(lang));
   return alt ? { voice: alt, pitch: 1 } : { voice: null, pitch: 1.18 };
@@ -988,6 +995,20 @@ if (window.__UNDERTONE_NATIVE) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'elevenKey', key: k }));
     $('#elevenKey').value = ''; $('#elevenTip').textContent = k ? 'Checking your key…' : 'Removing your key…';
   });
+  $('#speechifyField').hidden = false;
+  $('#speechifySave').addEventListener('click', () => {
+    const k = $('#speechifyKey').value.trim();
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'speechifyKey', key: k }));
+    $('#speechifyKey').value = ''; $('#speechifyTip').textContent = k ? 'Checking your key…' : 'Removing your key…';
+  });
+  window.__speechifyState = (has, count, err) => {
+    if (count == null) count = window.__speechifyCount || 0; else window.__speechifyCount = count;
+    $('#speechifyKey').placeholder = has ? 'Key saved. Paste a new one to replace it' : 'Paste your Speechify API key';
+    $('#speechifySave').textContent = has ? 'Replace' : 'Save';
+    $('#speechifyTip').textContent = err ? err + '. Check the key and try again.'
+      : has ? count + ' Speechify voices added to the Voice list above. To remove the key, tap Replace with the box empty.'
+      : 'Your Speechify voices then appear at the top of the Voice list. The key stays in your iPhone\'s keychain. Speechify charges for each character read.';
+  };
   window.__elevenState = (has, count, err, use) => {
     if (count == null) count = window.__elevenCount || 0; else window.__elevenCount = count;
     $('#elevenKey').placeholder = has ? 'Key saved. Paste a new one to replace it' : 'Paste your ElevenLabs API key';

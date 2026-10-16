@@ -48,6 +48,9 @@ export const BRIDGE_JS = `
     elevenState: function (hasKey, count, error, usage) {
       if (typeof window.__elevenState === 'function') window.__elevenState(hasKey, count, error, usage);
     },
+    speechifyState: function (hasKey, count, error) {
+      if (typeof window.__speechifyState === 'function') window.__speechifyState(hasKey, count, error);
+    },
     voiceProblem: function (uri, msg, lasting) {
       if (typeof window.__voiceProblem === 'function') window.__voiceProblem(uri, msg, lasting);
     },
