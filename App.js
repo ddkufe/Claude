@@ -87,7 +87,7 @@ export default function App() {
       let eleven = [], elevenError = null;
       try { eleven = await Eleven.listVoices(); } catch (e) { elevenError = e?.message || String(e); }
       call('voices', [...eleven, ...list]);
-      call('elevenState', Eleven.hasKey(), eleven.length, elevenError);
+      call('elevenState', Eleven.hasKey(), eleven.length, elevenError, await Eleven.usage());
       call('status', elevenError ? elevenError
         : `ready, ${list.length} iPhone voices${Eleven.hasKey() ? ` and ${eleven.length} ElevenLabs voices` : ''}`);
     } else if (m.type === 'prefetch') {
@@ -117,6 +117,7 @@ export default function App() {
         }
         // Tell the reader why, so it can say so on screen, then read this sentence with the reader's best iPhone voice.
         call('voiceProblem', m.voice, problem.message, problem.lasting);
+        if (problem.lasting && Eleven.hasKey()) Eleven.usage().then(u => call('elevenState', true, null, null, u));
         call('status', `${problem.message}, using the iPhone voice for now`);
         m.voice = m.fallback || null;
       }

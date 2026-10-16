@@ -259,6 +259,9 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
   background: var(--raised); border: 1px solid var(--rule); padding: 8px 16px; font-family: var(--f-cap); font-size: .7rem; letter-spacing: .16em; transition: opacity .25s, transform .25s; white-space: nowrap;
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+/* Longer notices (a voice that stopped working) wrap so the whole message is readable; tap to close. */
+.toast.long { white-space: normal; width: min(92vw, 440px); font-family: var(--f-read); font-size: .95rem; letter-spacing: 0; line-height: 1.4; padding: 12px 16px; text-align: left; }
+.toast.long.on { pointer-events: auto; }
 
 @media (max-width: 520px) {
   .brand span { display: none; }
@@ -365,7 +368,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 
 <audio id="out" playsinline hidden></audio>
 <div class="loading" id="loading" hidden><div id="loadingMsg">Opening…</div></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" onclick="this.classList.remove('on')"></div>
 <section class="cover" id="cover" hidden aria-label="Book cover">
   <div class="cover-in">
     <p class="cover-kicker foil">UNDERTONE</p>
@@ -613,7 +616,7 @@ const imgObserver = 'IntersectionObserver' in window ? new IntersectionObserver(
 
 /* ---------------- Keeping lines ---------------- */
 function toast(msg, ms = 1800) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('long', ms > 1800); t.classList.add('on');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), ms);
 }
 function toggleKeep(i) {
@@ -799,7 +802,8 @@ window.__voiceProblem = (uri, msg, lasting) => {
   if (lasting) voiceTrouble.set(uri, msg);
   if (said === msg && lasting) return; // already told the reader
   const fb = phoneVoice();
-  toast(name + ' isn\'t working: ' + msg + '. Reading with ' + (fb ? fb.name.replace(/\s*\(.*\)$/, '') : 'the iPhone voice') + (lasting ? ' until that\'s fixed. Pick another voice in Settings.' : ' for this line.'), 7000);
+  toast(name + ' isn\'t working: ' + msg + '. Reading with ' + (fb ? fb.name.replace(/\s*\(.*\)$/, '') : 'the iPhone voice') + (lasting ? ' until that\'s fixed. Details are in Settings.' : ' for this line.'), 12000);
+  if (window.__nativeStatus) window.__nativeStatus(name + ': ' + msg);
   if (lasting) { const o = [...$('#voice').options].find(o => o.value === uri); if (o && v) o.textContent = voiceLabel(v); }
 };
 if (synth) { loadVoices(); synth.addEventListener?.('voiceschanged', loadVoices); }
@@ -984,11 +988,19 @@ if (window.__UNDERTONE_NATIVE) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'elevenKey', key: k }));
     $('#elevenKey').value = ''; $('#elevenTip').textContent = k ? 'Checking your key…' : 'Removing your key…';
   });
-  window.__elevenState = (has, count, err) => {
+  window.__elevenState = (has, count, err, use) => {
+    if (count == null) count = window.__elevenCount || 0; else window.__elevenCount = count;
     $('#elevenKey').placeholder = has ? 'Key saved. Paste a new one to replace it' : 'Paste your ElevenLabs API key';
     $('#elevenSave').textContent = has ? 'Replace' : 'Save';
+    // How much of the account's monthly allowance is left, straight from ElevenLabs.
+    let usage = '';
+    if (use && use.limit) {
+      const n = x => Number(x).toLocaleString(), left = Math.max(0, use.limit - use.used);
+      const reset = use.reset ? new Date(use.reset * 1000).toLocaleDateString(undefined, { month: 'long', day: 'numeric' }) : '';
+      usage = ' ElevenLabs characters this month: ' + n(use.used) + ' used of ' + n(use.limit) + ' (' + n(left) + ' left)' + (reset ? ', resets ' + reset : '') + '.';
+    }
     $('#elevenTip').textContent = err ? err + '. Check the key and try again.'
-      : has ? count + ' ElevenLabs voices added to the Voice list above. To remove the key, tap Replace with the box empty.'
+      : has ? count + ' ElevenLabs voices added to the Voice list above.' + usage + ' To remove the key, tap Replace with the box empty.'
       : 'Your ElevenLabs voices then appear at the top of the Voice list. The key stays in your iPhone\'s keychain. ElevenLabs charges for each character read.';
   };
   // The app reports what its speech engine is doing, so problems are visible on the phone.

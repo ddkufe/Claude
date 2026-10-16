@@ -29,13 +29,14 @@ export const hasKey = () => !!apiKey;
 // a voice the plan doesn't allow, a bad key); anything else (no signal in the car, a busy server) is worth a retry.
 function explain(status, detail) {
   const code = String(detail?.status || detail?.code || '').toLowerCase();
-  const text = String(detail?.message || (typeof detail === 'string' ? detail : '') || '');
+  const text = String(detail?.message || (typeof detail === 'string' ? detail : '') || '').trim().replace(/\.$/, '');
   const err = (message, lasting) => Object.assign(new Error(message), { lasting, status });
-  if (code.includes('quota') || /quota|credits?/i.test(text)) return err('your ElevenLabs account has used up its characters for now', true);
+  if (code.includes('quota') || /exceeds your quota/i.test(text)) return err('your ElevenLabs account has used up its characters for this month' + (text ? ` (ElevenLabs says: ${text})` : ''), true);
   if (status === 402 || code.includes('payment') || /upgrade|subscription|library voices/i.test(text)) return err('this ElevenLabs voice needs a paid ElevenLabs plan to use in apps', true);
   if (status === 404 || code.includes('voice_not_found')) return err('ElevenLabs couldn\'t find this voice in your account', true);
   if (status === 401 || status === 403) return err('ElevenLabs didn\'t accept the key' + (text ? ` (${text})` : ''), true);
   if (status === 429) return err('ElevenLabs is busy right now', false);
+  if (code.includes('unusual_activity')) return err('ElevenLabs paused free use on this account' + (text ? ` (ElevenLabs says: ${text})` : ''), true);
   return err(`ElevenLabs error ${status}${text ? ': ' + text : ''}`, status >= 400 && status < 500);
 }
 
@@ -60,6 +61,15 @@ export async function listVoices() {
   return (j.voices || []).map(v => ({
     name: `${v.name} (ElevenLabs)`, lang: 'en-US', voiceURI: PREFIX + v.voice_id, localService: false, default: false,
   }));
+}
+
+// The account's monthly character allowance: { used, limit, reset (unix seconds) }, or null if the key can't read it.
+export async function usage() {
+  if (!apiKey) return null;
+  try {
+    const j = await (await api('/user/subscription')).json();
+    return { used: j.character_count ?? 0, limit: j.character_limit ?? 0, reset: j.next_character_count_reset_unix ?? null, tier: j.tier ?? null };
+  } catch { return null; }
 }
 
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
