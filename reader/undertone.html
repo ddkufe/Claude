@@ -1378,22 +1378,30 @@ const OCR = (() => {
     return w;
   }
   return {
-    // A block of printed text (one column of a scanned page): every line, in order, with where it sits.
-    // `psm 6` tells Tesseract it's one uniform block, so it never jumps across into the next column.
-    async lines(canvas, limitMs = 30000) {
+    // Every word on a whole page with its position (picture pixels): x0/x1, y at the word's baseline, and the line height.
+    async words(canvas, limitMs = 45000) {
       if (uses >= 8) await this.close();
       const wk = await worker(); if (!wk) return null;
       uses++;
-      const img = prepare(canvas, 2200), k = canvas.width / img.width;
+      const img = prepare(canvas, 2600), k = canvas.width / img.width;
       try {
-        await wk.setParameters({ tessedit_pageseg_mode: '6' });
+        await wk.setParameters({ tessedit_pageseg_mode: '3' });
         let timer;
         const late = new Promise(res => { timer = setTimeout(() => res('late'), limitMs); });
         const r = await Promise.race([wk.recognize(img), late]); clearTimeout(timer);
         if (r === 'late') { await this.close(); return null; }
-        return (r.data.lines || []).filter(l => l.confidence >= 30 && /[A-Za-z0-9]/.test(l.text))
-          .map(l => ({ t: l.text.replace(/^[|¦!\s]+|[|¦\s]+$/g, '').replace(/\s+/g, ' ').trim(), x0: l.bbox.x0 * k, x1: l.bbox.x1 * k, top: l.bbox.y0 * k, h: (l.bbox.y1 - l.bbox.y0) * k }))
-          .filter(l => l.t);
+        const out = [];
+        for (const l of r.data.lines || []) {
+          const lh = (l.rowAttributes?.row_height || (l.bbox.y1 - l.bbox.y0) * 0.75) * k;
+          for (const w of l.words || []) {
+            const t = (w.text || '').trim();
+            // Rule lines and specks come out as bars and lone marks.
+            if (!t || w.confidence < 25 || /^[|¦!_\-—–~.,:;'"`*]+$/.test(t)) continue;
+            const b = w.baseline && w.baseline.y0 > 0 ? (w.baseline.y0 + w.baseline.y1) / 2 : w.bbox.y1;
+            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh });
+          }
+        }
+        return out;
       } catch { await this.close(); return null; }
       finally { drop(img); }
     },
@@ -1475,88 +1483,38 @@ function imageRects(ops) {
   }
   return rects;
 }
-// Two columns on a page image (a scanned page): the empty strip down the middle, which may have a thin
-// rule drawn in it, and the band of the page where both columns run (below headings and the tablet bar,
-// above the page number). Returns canvas pixels, or null for a single column.
-function pageColumns(c) {
-  const W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
-  const dark = (x, y) => { const i = (y * W + x) * 4; return d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11 < 150; };
-  const col = new Uint32Array(W);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (dark(x, y)) col[x]++;
-  let ref = 0, nref = 0;
-  for (let x = Math.floor(W * 0.12); x < W * 0.88; x++) if (x < W * 0.3 || x > W * 0.7) { ref += col[x]; nref++; }
-  ref /= Math.max(1, nref); if (ref < H * 0.01) return null; // hardly any ink: not a text page
-  const lo = Math.floor(W * 0.3), hi = Math.ceil(W * 0.7), low = x => col[x] < ref * 0.2;
-  // Runs of near-empty strips, bridging a rule line up to ~1% of the page wide.
-  let best = null;
-  for (let x = lo; x <= hi; x++) {
-    if (!low(x)) continue;
-    let e = x;
-    for (;;) {
-      while (e + 1 <= hi && low(e + 1)) e++;
-      let j = e + 1; while (j <= hi && !low(j) && j - e <= W * 0.01) j++;
-      if (j <= hi && low(j) && j - e <= W * 0.01) { e = j; continue; }
-      break;
-    }
-    if (!best || e - x > best[1] - best[0]) best = [x, e];
-    x = e;
-  }
-  if (!best || best[1] - best[0] < W * 0.012) return null;
-  const [g0, g1] = best, rule = new Set();
-  for (let x = g0; x <= g1; x++) if (!low(x)) rule.add(x);
-  // Rows where something is printed across the strip (a centred heading, the tablet bar, a page number).
-  const across = new Uint8Array(H);
-  for (let y = 0; y < H; y++) for (let x = g0 + 1; x < g1; x++) if (!rule.has(x) && !rule.has(x - 1) && !rule.has(x + 1) && dark(x, y)) { across[y] = 1; break; }
-  let top = 0, bottom = -1;
-  for (let y = 0; y < H;) {
-    if (across[y]) { y++; continue; }
-    let e = y; while (e + 1 < H && !across[e + 1]) e++;
-    if (e - y > bottom - top) { top = y; bottom = e; }
-    y = e + 1;
-  }
-  if (bottom - top < H * 0.25) return null;
-  // Both sides must actually carry text in that band.
-  const ink = (a, b) => { let n = 0; for (let y = top; y <= bottom; y += 2) for (let x = a; x < b; x += 2) if (dark(x, y)) n++; return n; };
-  const left = ink(0, g0), right = ink(g1 + 1, W);
-  if (left < right * 0.15 || right < left * 0.15) return null;
-  return { g0, g1, top, bottom };
-}
-function cropCanvas(c, x, y, w, h) {
-  const k = document.createElement('canvas'); k.width = Math.max(1, w); k.height = Math.max(1, h);
-  const g = k.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, k.width, k.height); g.drawImage(c, x, y, w, h, 0, 0, w, h);
-  return k;
-}
-// Read a scanned two-column page: the part above the columns, the left column top to bottom, then the right
-// column, then anything below. Gives lines in the same form as the PDF's own text, so the rest is shared.
-async function readScannedColumns(page) {
-  const [c] = await renderCrops(page, [{ x0: page.view[0], y0: page.view[1], x1: page.view[2], y1: page.view[3] }], 1600);
+// The words on a scanned page, read from its picture, shaped like a PDF's own text (each word with where it
+// sits, in page units). The rest of the import then treats the page like any other: it finds the gap between
+// the columns from where the words are, so a tilted scan or a rule drawn down the middle doesn't matter.
+async function ocrPageItems(page) {
+  const [vx0, vy0, vx1, vy1] = page.view;
+  const [c] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }], 1600);
   try {
-    const cols = pageColumns(c); if (!cols) return null;
-    const { g0, g1, top, bottom } = cols, W = c.width, H = c.height, pad = 3;
-    const parts = [
-      ['full', 0, 0, W, top + pad],
-      ['c0', 0, top - pad, g0, bottom - top + 2 * pad],
-      ['c1', g1 + 1, top - pad, W - g1 - 1, bottom - top + 2 * pad],
-      ['full', 0, bottom - pad, W, H - bottom + pad],
-    ];
-    const L = { full: [], c0: [], c1: [] };
-    for (const [k, x, y, w, h] of parts) {
-      if (w < 20 || h < 12) continue;
-      const crop = cropCanvas(c, x, Math.max(0, y), w, Math.min(h, H - Math.max(0, y)));
-      const ls = (await OCR.lines(crop)) || []; drop(crop);
-      // Same orientation as PDF text: a bigger y is higher on the page.
-      for (const l of ls) L[k].push({ t: l.t, x0: x + l.x0, x1: x + l.x1, y: -(Math.max(0, y) + l.top), h: l.h, head: k === 'full' && y === 0 });
-    }
-    if (L.c0.length + L.c1.length < 4) return null;
-    return { L, gx: (g0 + g1) / 2 };
+    const words = await OCR.words(c); if (!words) return null;
+    const k = c.width / (vx1 - vx0);
+    const items = words.map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k) }));
+    return { items, chars: items.reduce((n, it) => n + it.str.length, 0) };
   } finally { drop(c); }
 }
-// The column split of a page from its picture, in PDF units: for scans whose hidden text runs straight
-// across both columns. Null when the picture shows one column.
-async function gutterFromImage(page) {
-  const [c] = await renderCrops(page, [{ x0: page.view[0], y0: page.view[1], x1: page.view[2], y1: page.view[3] }], 700);
-  try { const cols = pageColumns(c); return cols ? page.view[0] + (cols.g0 + cols.g1) / 2 / c.width * (page.view[2] - page.view[0]) : null; }
-  finally { drop(c); }
+// Words read off a picture come one by one, so a centred heading ("CHAPTER ONE", a figure caption) has words
+// on both sides of the column split. Those lines run across the split with only a word space at it, where two
+// facing column lines have the whole gutter between them; they're kept whole and read before the columns.
+function spanning(items, gx) {
+  const wide = new Set(), byX = items.slice().sort((a, b) => a.x0 - b.x0);
+  const grow = (a, b) => { // the whole printed line: neighbours on the same row joined by ordinary word spaces
+    const row = byX.filter(w => Math.abs(w.y - a.y) < Math.max(a.h, w.h) * 0.6), keep = [a, b];
+    for (let i = row.indexOf(a) - 1; i >= 0 && row[i + 1].x0 - row[i].x1 < a.h * 1.5; i--) keep.push(row[i]);
+    for (let i = row.indexOf(b) + 1; i > 0 && i < row.length && row[i].x0 - row[i - 1].x1 < a.h * 1.5; i++) keep.push(row[i]);
+    keep.forEach(w => wide.add(w));
+  };
+  for (const l of byX) {
+    if (wide.has(l) || l.x1 < gx - l.h * 6 || l.x0 > gx) continue;
+    if (l.x0 < gx - 4 && l.x1 > gx + 4) { grow(l, l); continue; } // a word printed right across the split
+    if (l.x1 > gx + 4) continue;
+    const r = byX.find(r => r.x0 >= gx - 4 && r.x0 >= l.x1 && Math.abs(r.y - l.y) < Math.max(l.h, r.h) * 0.6);
+    if (r && r.x0 - l.x1 <= Math.max(l.h, r.h) * 0.9) grow(l, r);
+  }
+  return wide;
 }
 // The empty vertical strip between two columns of text, if the page has two columns.
 function findGutter(items, x0, W) {
@@ -1615,7 +1573,7 @@ const CHAPTER_LINE = /^(chapter|book|part)\s+([a-z]+(?:[- ][a-z]+)?|\d+|[ivxlc]+
 const VERSE_START = /^\d{1,3}\s+(?=["“'(]?[A-Z])/;
 const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 // Saved progress from an older version of the importer (which mixed the two columns of scanned pages) isn't continued.
-const IMPORT_V = 2;
+const IMPORT_V = 3;
 async function readPDF(file, key) {
   const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   await loadScript(base + 'pdf.worker.min.js');
@@ -1623,7 +1581,7 @@ async function readPDF(file, key) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   let blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
-  let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0;
+  let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0, singleColumnRun = 0;
   // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
   const prior = await Library.getImport(key);
   if (prior && prior.total === pdf.numPages && prior.v === IMPORT_V) {
@@ -1644,7 +1602,7 @@ async function readPDF(file, key) {
     try {
     const tc = await page.getTextContent();
     const [vx0, vy0, vx1, vy1] = page.view, W = vx1 - vx0, H = vy1 - vy0;
-    const items = tc.items.filter(it => 'str' in it && it.str.trim()).map(it => {
+    let items = tc.items.filter(it => 'str' in it && it.str.trim()).map(it => {
       const x0 = it.transform[4], h = Math.abs(it.transform[3]) || it.height || 10;
       return { str: it.str, x0, x1: x0 + (it.width || it.str.length * h * 0.5), y: it.transform[5], h };
     });
@@ -1657,15 +1615,14 @@ async function readPDF(file, key) {
     const scanned = rects.some(r => (r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.6);
     rects = rects.filter(r => !((r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.8 && textChars > 200));
 
-    let L = null, gx = null;
     // A scanned page with no text layer: read its words from the picture.
     if (!textChars && rects.length) {
       busy('Reading the words on page ' + p + ' of ' + pdf.numPages + '…');
       const full = rects.find(r => (r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.6);
-      // Two columns: read the left column all the way down before the right one.
-      const cols = full ? await readScannedColumns(page) : null;
-      if (cols) { ({ L, gx } = cols); rects = rects.filter(r => r !== full); }
-      else if (full) {
+      // Read the words off the picture; columns are then found from where the words sit.
+      const ocr = full ? await ocrPageItems(page) : null;
+      if (ocr && ocr.chars > 160) { items = ocr.items; rects = rects.filter(r => r !== full); }
+      else if (full && !ocr) {
         const [canvas] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }]);
         const paras = (await OCR.read(canvas, 30000)) || []; drop(canvas);
         if (paras.join(' ').length > 160) {
@@ -1681,28 +1638,26 @@ async function readPDF(file, key) {
       }
     }
 
+    let gx = findGutter(items, vx0, W);
+    // Some scans carry hidden text that runs straight across both columns, so its lines can't tell the columns
+    // apart. Read the words from the picture instead and look for the columns there. A book that turns out to
+    // be single-column stops being checked after a run of pages.
+    if (gx == null && scanned && textChars && items.length >= 6 && singleColumnRun < 12) {
+      busy('Reading the words on page ' + p + ' of ' + pdf.numPages + '…');
+      const ocr = await ocrPageItems(page), g = ocr && ocr.chars > 160 ? findGutter(ocr.items, vx0, W) : null;
+      if (g != null) { items = ocr.items; gx = g; rects = []; singleColumnRun = 0; } else singleColumnRun++;
+    }
     const colOf = (x0, x1) => gx == null ? 0 : x1 <= gx + 4 ? 0 : x0 >= gx - 4 ? 1 : -1;
-    if (!L) {
-      gx = findGutter(items, vx0, W);
-      // Some scans carry hidden text that runs straight across both columns, so its lines can't tell the columns
-      // apart. When the picture shows two columns, read the words from the picture, one column at a time.
-      if (gx == null && scanned && items.length >= 6 && await gutterFromImage(page) != null) {
-        busy('Reading the words on page ' + p + ' of ' + pdf.numPages + '…');
-        const cols = await readScannedColumns(page);
-        if (cols) { ({ L, gx } = cols); rects = []; }
-      }
-    }
-    if (!L) {
-      const byCol = { '-1': [], 0: [], 1: [] };
-      for (const it of items) byCol[colOf(it.x0, it.x1)].push(it);
-      L = { full: buildLines(byCol['-1']), c0: buildLines(byCol[0]), c1: buildLines(byCol[1]) };
-    }
+    const wide = gx == null ? new Set() : spanning(items, gx);
+    const byCol = { '-1': [], 0: [], 1: [] };
+    for (const it of items) byCol[wide.has(it) ? -1 : colOf(it.x0, it.x1)].push(it);
+    const L = { full: buildLines(byCol['-1']), c0: buildLines(byCol[0]), c1: buildLines(byCol[1]) };
     // Running heads printed across the top of both columns on the same line ("El Istakhlaag ... The Creation",
     // "Tablet 1:19 ... Tablet 1:33") are read once, before the columns, not glued onto the verses.
     const heads = [];
     const colW = ls => Math.max(1, ...ls.map(l => l.x1 - l.x0)), w0 = colW(L.c0), w1 = colW(L.c1);
     const short = (l, w) => l.t.length < 32 && l.x1 - l.x0 < w * 0.6;
-    while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= 2 && short(L.c0[0], w0) && short(L.c1[0], w1)) {
+    while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= Math.max(2, L.c0[0].h) && short(L.c0[0], w0) && short(L.c1[0], w1)) {
       const a = L.c0.shift(), b = L.c1.shift(); heads.push({ ...a, t: a.t + ' — ' + b.t, head: true });
     }
 
