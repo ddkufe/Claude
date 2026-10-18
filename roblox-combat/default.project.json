@@ -1,0 +1,26 @@
+{
+  "name": "NinjaCombat",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Combat": {
+        "$path": "src/ReplicatedStorage/Combat"
+      }
+    },
+    "ServerScriptService": {
+      "Combat": {
+        "$path": "src/ServerScriptService/Combat"
+      },
+      "CombatServer": {
+        "$path": "src/ServerScriptService/CombatServer.server.lua"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "CombatClient": {
+          "$path": "src/StarterPlayerScripts/CombatClient.client.lua"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,347 @@
+-- StarterPlayer/StarterPlayerScripts/CombatClient (LocalScript)
+-- Input, predicted movement (lunges, dashes, slam dives), client-side hitboxes,
+-- and movement speed/jump state driven by the server's combat attributes.
+--
+-- Controls (PC / Gamepad):
+--   M1 / R2           attack (hold to keep swinging). 4th hit is the finisher:
+--                       grounded          -> knockback kick (wall splats)
+--                       holding Space/A   -> uptilt launcher (you hop after it)
+--                       airborne          -> ground slam (spikes + crater AoE)
+--   Q / B             dodge dash with i-frames (direction = movement input)
+--   F / L2            block (tap right before a hit = parry)
+--   LeftShift / L3    sprint
+-- Mobile gets on-screen buttons automatically.
+
+local ContextActionService = game:GetService("ContextActionService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local Combat = ReplicatedStorage:WaitForChild("Combat")
+local Config = require(Combat.Config)
+local ClientEvents = require(Combat.ClientEvents)
+local Hitbox = require(Combat.Hitbox)
+local Knockback = require(Combat.Knockback)
+local Poses = require(Combat.Poses)
+local VFX = require(Combat.VFX)
+local Request = Combat:WaitForChild("CombatRequest")
+
+local player = Players.LocalPlayer
+
+local character, humanoid, root
+local combo, lastSwing, nextSwing, endLagUntil = 0, -math.huge, 0, 0
+local attackSlowUntil, jumpLockUntil = 0, 0
+local dodgeReady, blockReady = 0, 0
+local dodging, blocking, sprinting, diving, m1Held = false, false, false, false, false
+local jumpEnabled = true
+
+local function now()
+	return workspace:GetServerTimeNow()
+end
+
+local function alive()
+	return character ~= nil and humanoid ~= nil and root ~= nil and humanoid.Health > 0
+end
+
+local function stunned()
+	return character ~= nil and (character:GetAttribute("StunEnd") or 0) > now()
+end
+
+local function grounded()
+	return humanoid.FloorMaterial ~= Enum.Material.Air
+end
+
+local function ignoreList()
+	return { character, VFX.folder() }
+end
+
+local function flatLook()
+	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+	return look.Magnitude > 0.01 and look.Unit or Vector3.zAxis
+end
+
+local function faceNearestTarget()
+	local look = flatLook()
+	local best, bestDistance
+	for _, model in ipairs(Hitbox.radius(root.Position, Config.M1.AutoFaceRange, ignoreList())) do
+		local offset = (model.HumanoidRootPart.Position - root.Position) * Vector3.new(1, 0, 1)
+		if offset.Magnitude > 0.5 then
+			local angle = math.deg(math.acos(math.clamp(look:Dot(offset.Unit), -1, 1)))
+			if angle <= Config.M1.AutoFaceAngle and (not bestDistance or offset.Magnitude < bestDistance) then
+				best, bestDistance = offset, offset.Magnitude
+			end
+		end
+	end
+	if best then
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + best)
+	end
+end
+
+local function sendHits(kind)
+	local cf, size
+	if kind == "Spike" then
+		cf = root.CFrame * CFrame.new(0, -3, -2)
+		size = Config.Slam.HitboxSize
+	else
+		cf = root.CFrame * CFrame.new(0, 0, -Config.M1.HitboxOffset)
+		size = Config.M1.HitboxSize
+	end
+	if Config.Debug.ShowHitboxes then
+		Hitbox.debugDraw(cf, size)
+	end
+	local hits = Hitbox.box(cf, size, ignoreList())
+	if #hits > 0 then
+		Request:FireServer("M1Hit", { hits = hits })
+	end
+end
+
+local function startDive()
+	diving = true
+	local dive = Knockback.apply(character, flatLook() * 18 + Vector3.new(0, -Config.Slam.DiveVelocity, 0), 2)
+	VFX.trail(character, VFX.KindColors.Spike, 1.5)
+	local started = os.clock()
+
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local cancelled = not alive() or stunned()
+		local distance, result = 0, nil
+		if not cancelled then
+			distance, result = Hitbox.groundDistance(character, 10)
+		end
+		if not cancelled and distance > 1.5 and not grounded() and os.clock() - started < 2 then
+			return
+		end
+
+		conn:Disconnect()
+		diving = false
+		if dive and dive.Parent then
+			dive:Destroy()
+		end
+		if cancelled then
+			return
+		end
+		local landing = result and result.Position or (root.Position - Vector3.new(0, 3, 0))
+		Request:FireServer("SlamLand", { position = landing })
+		Poses.play(character, "SlamLand")
+		VFX.shake(3, 0.35)
+		endLagUntil = now() + Config.Slam.EndLag
+		attackSlowUntil = endLagUntil
+	end)
+end
+
+local function tryM1()
+	if not alive() then
+		return
+	end
+	local t = now()
+	if stunned() or blocking or dodging or diving or t < nextSwing or t < endLagUntil then
+		return
+	end
+
+	local index = (t - lastSwing > Config.M1.ComboResetTime) and 1 or (combo % Config.M1.ComboLength) + 1
+	combo, lastSwing, nextSwing = index, t, t + Config.M1.SwingCooldown
+
+	local up = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+		or UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonA)
+	local kind, pose = "Jab", "Jab" .. ((index - 1) % 3 + 1)
+	if index == Config.M1.ComboLength then
+		combo = 0
+		local high = not grounded() and Hitbox.groundDistance(character, 80) >= Config.Slam.MinHeight
+		if high and not up then
+			kind, pose = "Spike", "SlamDive"
+		elseif up then
+			kind, pose = "Uptilt", "Uptilt"
+			endLagUntil = t + Config.Uptilt.EndLag
+		else
+			kind, pose = "Finisher", "Finisher"
+			endLagUntil = t + Config.M1.EndLag
+		end
+	end
+
+	faceNearestTarget()
+	Request:FireServer("M1", { up = up, slam = kind == "Spike" })
+	Poses.play(character, pose)
+	attackSlowUntil = math.max(endLagUntil, t + Config.M1.SwingCooldown + 0.1)
+	jumpLockUntil = t + Config.M1.SwingCooldown + 0.15
+
+	if kind == "Spike" then
+		startDive()
+		sendHits("Spike")
+		return
+	end
+	if kind ~= "Uptilt" and grounded() then
+		Knockback.apply(character, flatLook() * Config.M1.Lunge, Config.M1.LungeTime)
+	end
+	task.delay(Config.M1.Windup, function()
+		-- Getting hit during the windup cancels the swing.
+		if alive() and not stunned() then
+			sendHits(kind)
+		end
+	end)
+end
+
+local function setBlocking(on)
+	if on == blocking or not alive() then
+		return
+	end
+	if on and (stunned() or diving or dodging or now() < endLagUntil or now() < blockReady) then
+		return
+	end
+	blocking = on
+	Request:FireServer("Block", { on = on })
+	if on then
+		Poses.play(character, "Block")
+	else
+		blockReady = now() + Config.Block.ReleaseCooldown
+		Poses.release(character, "Block")
+	end
+end
+
+local function tryDodge()
+	if not alive() or dodging or diving then
+		return
+	end
+	local t = now()
+	if t < dodgeReady or (stunned() and not Config.Dodge.CanEscapeStun) then
+		return
+	end
+	dodgeReady = t + Config.Dodge.Cooldown
+
+	local direction = humanoid.MoveDirection * Vector3.new(1, 0, 1)
+	if direction.Magnitude < 0.1 then
+		direction = Config.Dodge.DefaultDirection == "Back" and -flatLook() or flatLook()
+	end
+	direction = direction.Unit
+
+	blocking = false
+	dodging = true
+	Request:FireServer("Dodge")
+	Knockback.apply(character, direction * Config.Dodge.Speed, Config.Dodge.Duration)
+	Poses.play(character, "Dodge")
+	VFX.dodge(character)
+	task.delay(Config.Dodge.Duration, function()
+		dodging = false
+	end)
+end
+
+local function onHitConfirm(payload)
+	local landed = false
+	for _, result in ipairs(payload.results or {}) do
+		if result == "hit" then
+			landed = true
+		end
+	end
+	if not landed or not alive() then
+		return
+	end
+
+	local heavy = payload.kind ~= "Jab"
+	VFX.shake(heavy and 1.8 or 0.6, 0.15)
+	if heavy then
+		VFX.fovPunch(4, 0.25)
+	end
+
+	if payload.kind == "Uptilt" then
+		-- Follow the launched target into the air for an air combo.
+		combo = 0
+		Knockback.apply(character, flatLook() * 6 + Vector3.new(0, Config.Uptilt.AttackerHop, 0), 0.14)
+	elseif payload.kind == "Jab" and not grounded() then
+		Knockback.apply(character, flatLook() * 3 + Vector3.new(0, Config.Air.AttackerHang, 0), 0.12)
+	end
+end
+
+local function onHurt()
+	combo = 0
+	if blocking then
+		blocking = false
+	end
+end
+
+ClientEvents.connect({ onHitConfirm = onHitConfirm, onHurt = onHurt })
+
+local function onCharacter(newCharacter)
+	character = newCharacter
+	humanoid = newCharacter:WaitForChild("Humanoid")
+	root = newCharacter:WaitForChild("HumanoidRootPart")
+	combo, lastSwing, nextSwing, endLagUntil = 0, -math.huge, 0, 0
+	attackSlowUntil, jumpLockUntil, dodgeReady, blockReady = 0, 0, 0, 0
+	dodging, blocking, diving = false, false, false
+	jumpEnabled = true
+
+	newCharacter:GetAttributeChangedSignal("Blocking"):Connect(function()
+		if newCharacter:GetAttribute("Blocking") == false and blocking then
+			blocking = false
+		end
+	end)
+end
+
+if player.Character then
+	onCharacter(player.Character)
+end
+player.CharacterAdded:Connect(onCharacter)
+
+local function action(callback)
+	return function(_, state)
+		callback(state)
+		return Enum.ContextActionResult.Pass
+	end
+end
+
+ContextActionService:BindAction("CombatM1", action(function(state)
+	m1Held = state == Enum.UserInputState.Begin
+	if m1Held then
+		tryM1()
+	end
+end), true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+
+ContextActionService:BindAction("CombatDodge", action(function(state)
+	if state == Enum.UserInputState.Begin then
+		tryDodge()
+	end
+end), true, Enum.KeyCode.Q, Enum.KeyCode.ButtonB)
+
+ContextActionService:BindAction("CombatBlock", action(function(state)
+	if state == Enum.UserInputState.Begin then
+		setBlocking(true)
+	elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+		setBlocking(false)
+	end
+end), true, Enum.KeyCode.F, Enum.KeyCode.ButtonL2)
+
+ContextActionService:BindAction("CombatSprint", action(function(state)
+	sprinting = state == Enum.UserInputState.Begin
+end), false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+
+ContextActionService:SetTitle("CombatM1", "Hit")
+ContextActionService:SetTitle("CombatDodge", "Dash")
+ContextActionService:SetTitle("CombatBlock", "Block")
+
+RunService.Heartbeat:Connect(function()
+	if not alive() then
+		return
+	end
+	if m1Held then
+		tryM1()
+	end
+
+	local t = now()
+	local isStunned = stunned()
+	local speed = Config.Movement.WalkSpeed
+	if isStunned then
+		speed = Config.Movement.StunnedSpeed
+	elseif blocking then
+		speed = Config.Movement.BlockingSpeed
+	elseif t < attackSlowUntil then
+		speed = Config.Movement.AttackingSpeed
+	elseif sprinting and humanoid.MoveDirection.Magnitude > 0 then
+		speed = Config.Movement.SprintSpeed
+	end
+	humanoid.WalkSpeed = speed
+
+	local canJump = not isStunned and not blocking and not diving and t >= jumpLockUntil
+	if canJump ~= jumpEnabled then
+		jumpEnabled = canJump
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, canJump)
+	end
+end)
