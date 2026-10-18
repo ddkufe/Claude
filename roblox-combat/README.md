@@ -5,31 +5,29 @@ slam with craters, wall splats, hitstun, block / parry / guard break, dodge
 dash with i-frames, sprint, and hit/impact VFX. R6 only. Works out of the box
 with procedural poses; swap in real animations whenever you have them.
 
-## Install (Roblox Studio, no plugins)
+## Install (Roblox Studio, about 1 minute)
 
-Create these exactly (names matter), and paste each file's contents in:
+The `dist/` folder has three ready-made model files. In Studio's Explorer,
+right-click each target below, choose **Insert from File...**, and pick the
+matching file:
 
-| In Studio | Type | File |
+| Right-click this in Explorer | Insert this file | You get |
 |---|---|---|
-| ReplicatedStorage > **Combat** | Folder | |
-| ReplicatedStorage > Combat > **Config** | ModuleScript | `src/ReplicatedStorage/Combat/Config.lua` |
-| ReplicatedStorage > Combat > **Knockback** | ModuleScript | `.../Combat/Knockback.lua` |
-| ReplicatedStorage > Combat > **Hitbox** | ModuleScript | `.../Combat/Hitbox.lua` |
-| ReplicatedStorage > Combat > **Poses** | ModuleScript | `.../Combat/Poses.lua` |
-| ReplicatedStorage > Combat > **VFX** | ModuleScript | `.../Combat/VFX.lua` |
-| ReplicatedStorage > Combat > **Crater** | ModuleScript | `.../Combat/Crater.lua` |
-| ReplicatedStorage > Combat > **ClientEvents** | ModuleScript | `.../Combat/ClientEvents.lua` |
-| ServerScriptService > **Combat** | Folder | |
-| ServerScriptService > Combat > **CombatState** | ModuleScript | `src/ServerScriptService/Combat/CombatState.lua` |
-| ServerScriptService > Combat > **HitResolver** | ModuleScript | `src/ServerScriptService/Combat/HitResolver.lua` |
-| ServerScriptService > **CombatServer** | Script | `src/ServerScriptService/CombatServer.server.lua` |
-| StarterPlayer > StarterPlayerScripts > **CombatClient** | LocalScript | `src/StarterPlayerScripts/CombatClient.client.lua` |
+| **ReplicatedStorage** | `dist/1_ReplicatedStorage.rbxmx` | `Combat` folder with 7 ModuleScripts |
+| **ServerScriptService** | `dist/2_ServerScriptService.rbxmx` | `Combat` folder with the `CombatServer` Script + 2 ModuleScripts |
+| **StarterPlayer > StarterPlayerScripts** | `dist/3_StarterPlayerScripts.rbxmx` | `CombatClient` LocalScript |
 
+If something lands in the wrong place, drag it to the right parent in
+Explorer: names and parents matter, the scripts find each other by them.
 The two RemoteEvents (`CombatRequest`, `CombatEvents`) are created by the
-server script automatically.
+server script automatically. Press Play to test.
 
-Using Rojo instead? `rojo serve` from this folder; `default.project.json`
-maps everything.
+Quick test target: Avatar tab > **Rig Builder** > R6 > Block Rig, then
+punch it. For PvP, use Test > Clients and Servers with 2 players.
+
+After editing anything in `src/`, rebuild the model files with
+`python3 build_rbxmx.py`. Using Rojo instead? `rojo serve` from this folder;
+`default.project.json` maps everything.
 
 ## Controls
 

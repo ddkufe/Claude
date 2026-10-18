@@ -10,9 +10,6 @@
     "ServerScriptService": {
       "Combat": {
         "$path": "src/ServerScriptService/Combat"
-      },
-      "CombatServer": {
-        "$path": "src/ServerScriptService/CombatServer.server.lua"
       }
     },
     "StarterPlayer": {

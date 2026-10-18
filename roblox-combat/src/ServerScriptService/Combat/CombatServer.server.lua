@@ -1,4 +1,4 @@
--- ServerScriptService/CombatServer (Script)
+-- ServerScriptService/Combat/CombatServer (Script)
 -- Receives combat requests, validates timing/range/state, and resolves hits.
 -- Clients do their own hit detection for responsiveness; the server re-checks
 -- every reported victim (range, facing, cooldowns, stun) before applying it.
@@ -9,8 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Combat = ReplicatedStorage:WaitForChild("Combat")
 local Config = require(Combat.Config)
 local Hitbox = require(Combat.Hitbox)
-local State = require(script.Parent.Combat.CombatState)
-local Resolver = require(script.Parent.Combat.HitResolver)
+local State = require(script.Parent.CombatState)
+local Resolver = require(script.Parent.HitResolver)
 
 local function getRemote(name)
 	local r = Combat:FindFirstChild(name)
