@@ -9,7 +9,9 @@
 --                       airborne          -> ground slam (spikes + crater AoE)
 --   Q / B             dodge dash with i-frames (direction = movement input)
 --   F / L2            block (tap right before a hit = parry)
---   LeftShift / L3    sprint
+--   LeftShift / L3    sprint (also relaxes the stance)
+--   C / Y             toggle the ninja combat stance (otherwise it is entered by your first
+--                       attack / block / dodge and relaxes after Config.Stance.ExitDelay)
 -- Mobile gets on-screen buttons automatically.
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -24,8 +26,10 @@ local ClientEvents = require(Combat.ClientEvents)
 local Hitbox = require(Combat.Hitbox)
 local Knockback = require(Combat.Knockback)
 local Poses = require(Combat.Poses)
+local Stance = require(Combat.Stance)
 local VFX = require(Combat.VFX)
 local Request = Combat:WaitForChild("CombatRequest")
+Stance.init(Request)
 
 local player = Players.LocalPlayer
 
@@ -160,6 +164,7 @@ local function tryM1()
 	end
 
 	faceNearestTarget()
+	Stance.engage()
 	Request:FireServer("M1", { up = up, slam = kind == "Spike" })
 	Poses.play(character, pose)
 	attackSlowUntil = math.max(endLagUntil, t + Config.M1.SwingCooldown + 0.1)
@@ -191,8 +196,10 @@ local function setBlocking(on)
 	blocking = on
 	Request:FireServer("Block", { on = on })
 	if on then
+		Stance.engage()
 		Poses.play(character, "Block")
 	else
+		Stance.bump()
 		blockReady = now() + Config.Block.ReleaseCooldown
 		Poses.release(character, "Block")
 	end
@@ -216,6 +223,7 @@ local function tryDodge()
 
 	blocking = false
 	dodging = true
+	Stance.engage()
 	Request:FireServer("Dodge")
 	Knockback.apply(character, direction * Config.Dodge.Speed, Config.Dodge.Duration)
 	Poses.play(character, "Dodge")
@@ -252,6 +260,7 @@ local function onHitConfirm(payload)
 end
 
 local function onHurt()
+	Stance.bump()
 	combo = 0
 	if blocking then
 		blocking = false
@@ -311,7 +320,16 @@ end), true, Enum.KeyCode.F, Enum.KeyCode.ButtonL2)
 
 ContextActionService:BindAction("CombatSprint", action(function(state)
 	sprinting = state == Enum.UserInputState.Begin
+	if sprinting then
+		Stance.dismiss()
+	end
 end), false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+
+ContextActionService:BindAction("CombatStance", action(function(state)
+	if state == Enum.UserInputState.Begin then
+		Stance.toggle()
+	end
+end), false, Config.Stance.ToggleKey, Enum.KeyCode.ButtonY)
 
 ContextActionService:SetTitle("CombatM1", "Hit")
 ContextActionService:SetTitle("CombatDodge", "Dash")
@@ -336,6 +354,8 @@ RunService.Heartbeat:Connect(function()
 		speed = Config.Movement.AttackingSpeed
 	elseif sprinting and humanoid.MoveDirection.Magnitude > 0 then
 		speed = Config.Movement.SprintSpeed
+	elseif Stance.isActive(character) then
+		speed = Config.Movement.StanceWalkSpeed
 	end
 	humanoid.WalkSpeed = speed
 

@@ -190,11 +190,25 @@ Config.Impact = {
 
 Config.Movement = {
 	WalkSpeed = 16,
+	StanceWalkSpeed = 14, -- while in the combat stance
 	SprintSpeed = 28,
 	AttackingSpeed = 9,
 	BlockingSpeed = 6,
 	StunnedSpeed = 3,
 	JumpPower = 50,
+}
+
+-- Ninja combat stance (see animations/STANCE_SPEC.md). Plays procedurally from
+-- Combat/StanceData until all four Config.Animations.Stance* ids are filled in.
+Config.Stance = {
+	Enabled = true,
+	AutoEnter = true, -- first attack / block / dodge drops you into the stance
+	ExitDelay = 3.0, -- seconds without a combat action before relaxing
+	ToggleKey = Enum.KeyCode.C, -- hold the stance until toggled off (gamepad: ButtonY)
+	EnterTime = 0.27, -- length of the draw-in (matches STANCE_ENTER)
+	ExitTime = 0.25, -- length of the relax (matches STANCE_EXIT)
+	BlendSpeed = 12, -- how fast idle <-> moving blends
+	MoveSpeedThreshold = 2.5, -- studs/s of horizontal speed that counts as moving
 }
 
 Config.Hit = {
@@ -220,6 +234,10 @@ Config.Animations = {
 	Block = "",
 	Dodge = "",
 	GuardBroken = "",
+	StanceEnter = "",
+	StanceIdle = "",
+	StanceExit = "",
+	StanceMove = "",
 }
 
 return Config
@@ -576,6 +594,10 @@ Poses.Library = {
 local defaults = setmetatable({}, { __mode = "k" })
 local tokens = setmetatable({}, { __mode = "k" })
 local tracks = setmetatable({}, { __mode = "k" })
+-- character -> { [motor key] = rotation CFrame }: the pose joints return to instead of the
+-- default rest pose (used by the combat stance). busyUntil covers a release tween in flight.
+local bases = setmetatable({}, { __mode = "k" })
+local busyUntil = setmetatable({}, { __mode = "k" })
 
 local function getMotor(character, key)
 	local spec = MOTORS[key]
@@ -594,6 +616,15 @@ end
 
 local function rotated(base, r)
 	return CFrame.new(base.Position) * CFrame.Angles(r[1], r[2], r[3]) * base.Rotation
+end
+
+local function restCFrame(character, key, motor)
+	local base = baseC0(motor)
+	local rot = bases[character] and bases[character][key]
+	if rot then
+		return CFrame.new(base.Position) * rot * base.Rotation
+	end
+	return base
 end
 
 local function tweenC0(motor, goal, duration)
@@ -640,10 +671,11 @@ function Poses.release(character, name)
 		return
 	end
 	tokens[character] = nil
+	busyUntil[character] = os.clock() + 0.2
 	for key in pairs(MOTORS) do
 		local motor = getMotor(character, key)
 		if motor and defaults[motor] then
-			tweenC0(motor, defaults[motor], 0.18)
+			tweenC0(motor, restCFrame(character, key, motor), 0.18)
 		end
 	end
 end
@@ -672,7 +704,7 @@ function Poses.play(character, name, hold)
 		if motor then
 			local base = baseC0(motor)
 			local r = entry.pose[key]
-			tweenC0(motor, r and rotated(base, r) or base, 0.07)
+			tweenC0(motor, r and rotated(base, r) or restCFrame(character, key, motor), 0.07)
 		end
 	end
 
@@ -685,11 +717,589 @@ function Poses.play(character, name, hold)
 	end
 end
 
+-- Stance hooks -------------------------------------------------------------
+
+-- rotations: { Root = CFrame, Neck = ..., RS = ..., LS = ..., RH = ..., LH = ... } (rotation only,
+-- same torso-space convention as Library poses). nil clears the base (back to the default rest pose).
+function Poses.setBase(character, rotations)
+	bases[character] = rotations
+end
+
+-- True while an attack/hurt/block pose is held or its release tween is still running.
+function Poses.isBusy(character)
+	return tokens[character] ~= nil or (busyUntil[character] or 0) > os.clock()
+end
+
+-- Writes rotation-only CFrames straight onto the Motor6D C0s (no tween).
+function Poses.applyRotations(character, rotations)
+	for key, rot in pairs(rotations) do
+		local motor = getMotor(character, key)
+		if motor then
+			local base = baseC0(motor)
+			motor.C0 = CFrame.new(base.Position) * rot * base.Rotation
+		end
+	end
+end
+
 return Poses
 ]]></ProtectedString>
 			</Properties>
 		</Item>
 		<Item class="ModuleScript" referent="RBX7">
+			<Properties>
+				<string name="Name">Stance</string>
+				<ProtectedString name="Source"><![CDATA[-- ReplicatedStorage/Combat/Stance (ModuleScript, client-side use)
+-- The ninja combat stance: draw in -> breathing idle -> relax, with an upper-body
+-- guard while moving. Local combat actions enter it; everyone else sees it through
+-- the character's "InStance" attribute (set by the server).
+--
+-- Two ways to play it:
+--   * Config.Animations.StanceEnter/Idle/Exit/Move all set -> real AnimationTracks
+--     (only the owning client plays them; Roblox replicates them).
+--   * otherwise -> procedural: the same keyframes (StanceData) drive Motor6D C0s on
+--     every client, through Poses so attacks recover back into the stance.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local Combat = script.Parent
+local Config = require(Combat.Config)
+local Data = require(Combat.StanceData)
+local Poses = require(Combat.Poses)
+
+local Stance = {}
+
+local localPlayer = Players.LocalPlayer
+local request -- RemoteEvent, set in Stance.init
+
+local MOTOR_KEY = { Root = "Root", Neck = "Neck", RightShoulder = "RS", LeftShoulder = "LS", RightHip = "RH", LeftHip = "LH" }
+local UPPER = { "Root", "Neck", "RightShoulder", "LeftShoulder" }
+local HIPS = { "RightHip", "LeftHip" }
+local IDENTITY = CFrame.new()
+
+-- sampling (pure) -------------------------------------------------------------
+
+local function ease(style, t)
+	if style == "CubicOut" then
+		return 1 - (1 - t) ^ 3
+	elseif style == "CubicIn" then
+		return t ^ 3
+	elseif style == "CubicInOut" then
+		if t < 0.5 then
+			return 4 * t ^ 3
+		end
+		return 1 - ((-2 * t + 2) ^ 3) / 2
+	end
+	return t -- Linear
+end
+
+-- Which two keys time t falls between, and the eased blend between them.
+function Stance.locate(anim, t)
+	local keys = anim.keys
+	if t <= keys[1].t then
+		return 1, 1, 0
+	end
+	for i = 2, #keys do
+		if t <= keys[i].t then
+			local a, b = keys[i - 1], keys[i]
+			return i - 1, i, ease(b.ease, (t - a.t) / (b.t - a.t))
+		end
+	end
+	return #keys, #keys, 0
+end
+
+for _, anim in pairs(Data) do
+	for _, key in ipairs(anim.keys) do
+		key.cf = {}
+		for joint, e in pairs(key.pose) do
+			key.cf[joint] = CFrame.Angles(math.rad(e[1]), math.rad(e[2]), math.rad(e[3]))
+		end
+	end
+end
+
+local function sample(anim, t)
+	local i, j, alpha = Stance.locate(anim, t)
+	local from, to = anim.keys[i].cf, anim.keys[j].cf
+	local out = {}
+	for joint, cf in pairs(from) do
+		out[joint] = (i == j) and cf or cf:Lerp(to[joint], alpha)
+	end
+	return out
+end
+
+local function toMotorKeys(rot)
+	local out = {}
+	for joint, cf in pairs(rot) do
+		out[MOTOR_KEY[joint]] = cf
+	end
+	return out
+end
+
+-- state -------------------------------------------------------------------------
+
+-- phase: "off" | "enter" | "hold" | "exit"
+local states = setmetatable({}, { __mode = "k" })
+local tracks = setmetatable({}, { __mode = "k" })
+
+local function stateOf(character)
+	local s = states[character]
+	if not s then
+		s = { phase = "off", t = 0, mt = 0, blend = 0, locked = false, lastAction = 0, endsAt = 0, trackMoving = false }
+		states[character] = s
+	end
+	return s
+end
+
+local function isLocal(character)
+	return localPlayer ~= nil and character == localPlayer.Character
+end
+
+local function usesTracks()
+	local a = Config.Animations
+	return (a.StanceEnter or "") ~= "" and (a.StanceIdle or "") ~= "" and (a.StanceExit or "") ~= "" and (a.StanceMove or "") ~= ""
+end
+
+local function trackOf(character, key)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return nil
+	end
+	local cache = tracks[character]
+	if not cache then
+		cache = {}
+		tracks[character] = cache
+	end
+	local tr = cache[key]
+	if not tr then
+		local animation = Instance.new("Animation")
+		animation.AnimationId = Config.Animations[key]
+		tr = animator:LoadAnimation(animation)
+		tr.Priority = Enum.AnimationPriority.Movement
+		tr.Looped = (key == "StanceIdle" or key == "StanceMove")
+		cache[key] = tr
+	end
+	return tr
+end
+
+local function playTrack(character, key, fade)
+	local tr = trackOf(character, key)
+	if tr then
+		tr:Play(fade or 0.1)
+	end
+end
+
+local function stopTrack(character, key, fade)
+	local cache = tracks[character]
+	if cache and cache[key] then
+		cache[key]:Stop(fade or 0.1)
+	end
+end
+
+local function horizontalSpeed(character)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return 0
+	end
+	local v = hrp.AssemblyLinearVelocity
+	return Vector3.new(v.X, 0, v.Z).Magnitude
+end
+
+-- visual enter / exit (any character) -------------------------------------------------
+
+function Stance.isActive(character)
+	local s = states[character]
+	return s ~= nil and (s.phase == "enter" or s.phase == "hold")
+end
+
+function Stance.enter(character)
+	local s = stateOf(character)
+	if s.phase == "enter" or s.phase == "hold" then
+		return
+	end
+	if usesTracks() then
+		if not isLocal(character) then
+			return -- the owner's tracks replicate to us
+		end
+		stopTrack(character, "StanceExit", 0.05)
+		playTrack(character, "StanceEnter", 0.05)
+	end
+	s.phase, s.t, s.mt, s.blend, s.trackMoving = "enter", 0, 0, 0, false
+	s.endsAt = os.clock() + Config.Stance.EnterTime
+end
+
+function Stance.exit(character)
+	local s = stateOf(character)
+	if s.phase == "off" or s.phase == "exit" then
+		return
+	end
+	if usesTracks() then
+		if not isLocal(character) then
+			s.phase = "off"
+			return
+		end
+		stopTrack(character, "StanceEnter", 0.05)
+		stopTrack(character, "StanceIdle", 0.1)
+		stopTrack(character, "StanceMove", 0.1)
+		playTrack(character, "StanceExit", 0.1)
+	end
+	s.phase, s.t = "exit", 0
+	s.endsAt = os.clock() + Config.Stance.ExitTime
+end
+
+-- local player actions ----------------------------------------------------------------
+
+local function tell(on)
+	if request then
+		request:FireServer("Stance", { on = on })
+	end
+end
+
+local function setActive(character, on)
+	if on then
+		Stance.enter(character)
+	else
+		Stance.exit(character)
+	end
+	tell(on)
+end
+
+-- Call on every local combat action (attack, block, dodge): enters the stance if enabled
+-- and restarts the relax timer.
+function Stance.engage()
+	local character = localPlayer and localPlayer.Character
+	if not character or not Config.Stance.Enabled then
+		return
+	end
+	local s = stateOf(character)
+	s.lastAction = os.clock()
+	if Config.Stance.AutoEnter and (s.phase == "off" or s.phase == "exit") then
+		setActive(character, true)
+	end
+end
+
+-- Call when something happens that should keep the stance alive without entering it (getting hit).
+function Stance.bump()
+	local character = localPlayer and localPlayer.Character
+	if character then
+		stateOf(character).lastAction = os.clock()
+	end
+end
+
+-- Toggle key: hold the stance until toggled off.
+function Stance.toggle()
+	local character = localPlayer and localPlayer.Character
+	if not character or not Config.Stance.Enabled then
+		return
+	end
+	local s = stateOf(character)
+	if Stance.isActive(character) then
+		s.locked = false
+		setActive(character, false)
+	else
+		s.locked = true
+		s.lastAction = os.clock()
+		setActive(character, true)
+	end
+end
+
+-- Sprinting (or anything else that should end the stance outright).
+function Stance.dismiss()
+	local character = localPlayer and localPlayer.Character
+	if not character then
+		return
+	end
+	local s = stateOf(character)
+	s.locked = false
+	if Stance.isActive(character) then
+		setActive(character, false)
+	end
+end
+
+-- per-frame -------------------------------------------------------------------------------
+
+local function stepProcedural(character, s, dt)
+	local rot
+	if s.phase == "enter" then
+		local anim = Data.STANCE_ENTER
+		s.t += dt
+		rot = sample(anim, s.t)
+		if s.t >= anim.duration then
+			s.phase, s.t = "hold", 0
+		end
+	elseif s.phase == "hold" then
+		local idleAnim, moveAnim = Data.STANCE_IDLE, Data.STANCE_MOVE
+		s.t = (s.t + dt) % idleAnim.duration
+		local target = horizontalSpeed(character) > Config.Stance.MoveSpeedThreshold and 1 or 0
+		s.blend += (target - s.blend) * (1 - math.exp(-Config.Stance.BlendSpeed * dt))
+		rot = sample(idleAnim, s.t)
+		if s.blend > 0.001 then
+			s.mt = (s.mt + dt) % moveAnim.duration
+			local move = sample(moveAnim, s.mt)
+			for _, joint in ipairs(UPPER) do
+				rot[joint] = rot[joint]:Lerp(move[joint], s.blend)
+			end
+			for _, joint in ipairs(HIPS) do
+				rot[joint] = rot[joint]:Lerp(IDENTITY, s.blend) -- legs belong to the walk animation
+			end
+		end
+	else -- exit
+		local anim = Data.STANCE_EXIT
+		s.t += dt
+		rot = sample(anim, s.t)
+		if s.t >= anim.duration then
+			s.phase = "off"
+			Poses.setBase(character, nil)
+			if not Poses.isBusy(character) then
+				Poses.release(character)
+			end
+			return
+		end
+	end
+
+	local keyed = toMotorKeys(rot)
+	-- Attacks recover toward wherever the stance currently is, so keep the base current.
+	Poses.setBase(character, keyed)
+	if not Poses.isBusy(character) then
+		Poses.applyRotations(character, keyed)
+	end
+end
+
+local function stepTracks(character, s)
+	local now = os.clock()
+	if s.phase == "enter" then
+		if now >= s.endsAt then
+			s.phase = "hold"
+			stopTrack(character, "StanceEnter", 0.1)
+			playTrack(character, "StanceIdle", 0.1)
+		end
+	elseif s.phase == "hold" then
+		local moving = horizontalSpeed(character) > Config.Stance.MoveSpeedThreshold
+		if moving ~= s.trackMoving then
+			s.trackMoving = moving
+			if moving then
+				stopTrack(character, "StanceIdle", 0.15)
+				playTrack(character, "StanceMove", 0.15)
+			else
+				stopTrack(character, "StanceMove", 0.15)
+				playTrack(character, "StanceIdle", 0.15)
+			end
+		end
+	elseif s.phase == "exit" then
+		if now >= s.endsAt then
+			s.phase = "off"
+			stopTrack(character, "StanceExit", 0.1)
+		end
+	end
+end
+
+local function stepCharacter(character, s, dt)
+	if isLocal(character) and s.phase == "hold" and not s.locked then
+		if character:GetAttribute("Blocking") == true then
+			s.lastAction = os.clock()
+		elseif os.clock() - s.lastAction > Config.Stance.ExitDelay then
+			setActive(character, false)
+		end
+	end
+	if usesTracks() then
+		if isLocal(character) then
+			stepTracks(character, s)
+		end
+	else
+		stepProcedural(character, s, dt)
+	end
+end
+
+function Stance.step(dt)
+	for character, s in pairs(states) do
+		if s.phase ~= "off" then
+			if character.Parent == nil then
+				states[character] = nil
+			else
+				stepCharacter(character, s, dt)
+			end
+		end
+	end
+end
+
+-- other players ---------------------------------------------------------------------------------
+
+local function watchCharacter(character)
+	if isLocal(character) then
+		return -- the local player drives their own stance directly
+	end
+	local function sync()
+		local want = character:GetAttribute("InStance") == true
+		if want and not Stance.isActive(character) then
+			Stance.enter(character)
+		elseif not want and Stance.isActive(character) then
+			Stance.exit(character)
+		end
+	end
+	character:GetAttributeChangedSignal("InStance"):Connect(sync)
+	sync()
+end
+
+local function watchPlayer(player)
+	if player == localPlayer then
+		return
+	end
+	player.CharacterAdded:Connect(watchCharacter)
+	if player.Character then
+		watchCharacter(player.Character)
+	end
+end
+
+function Stance.init(remote)
+	request = remote
+	RunService.RenderStepped:Connect(Stance.step)
+	for _, player in ipairs(Players:GetPlayers()) do
+		watchPlayer(player)
+	end
+	Players.PlayerAdded:Connect(watchPlayer)
+end
+
+return Stance
+]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBX8">
+			<Properties>
+				<string name="Name">StanceData</string>
+				<ProtectedString name="Source"><![CDATA[-- ReplicatedStorage/Combat/StanceData (ModuleScript)
+-- GENERATED by animations/export_extras.py from animations/stance.json - do not hand-edit.
+-- Rotation-only keyframes the procedural stance plays until the real animation ids are set.
+-- pose[joint] = {x, y, z} degrees, torso-space Rx*Ry*Rz (the same convention as Poses.lua).
+-- ease = how the motion ARRIVES at that key. Torso translation and leg IK are not included.
+
+return {
+	STANCE_ENTER = { duration = 0.2667, loop = false, keys = {
+		{ t = 0, ease = "Linear", pose = {
+			Root = { 0, 0, 0 },
+			Neck = { 0, 0, 0 },
+			RightShoulder = { 0, 0, 0 },
+			LeftShoulder = { 0, 0, 0 },
+			RightHip = { 0, 0, 0 },
+			LeftHip = { 0, 0, 0 },
+		} },
+		{ t = 0.0833, ease = "CubicOut", pose = {
+			Root = { -20, -32, 0 },
+			Neck = { 11.746, 31.458, -6.193 },
+			RightShoulder = { -16.384, 30.943, -1.404 },
+			LeftShoulder = { 62.08, 16.309, -17.92 },
+			RightHip = { 35.51, 25.406, -4.274 },
+			LeftHip = { 60.324, 18.548, -51.727 },
+		} },
+		{ t = 0.1667, ease = "CubicOut", pose = {
+			Root = { -10, -22, 0 },
+			Neck = { 5.39, 21.912, -2.017 },
+			RightShoulder = { -19.312, 20.871, -2.883 },
+			LeftShoulder = { 104.889, -5.927, -11.225 },
+			RightHip = { 20.155, 19.67, 6.747 },
+			LeftHip = { 34.908, 21.503, -24.792 },
+		} },
+		{ t = 0.2667, ease = "CubicInOut", pose = {
+			Root = { -10, -20, 0 },
+			Neck = { 4.256, 19.949, -1.454 },
+			RightShoulder = { -8.506, 19.797, -5.1 },
+			LeftShoulder = { 90, 0, -8 },
+			RightHip = { 19.276, 17.945, 7.761 },
+			LeftHip = { 32.582, 20.594, -19.458 },
+		} },
+	} },
+	STANCE_IDLE = { duration = 3.2, loop = true, keys = {
+		{ t = 0, ease = "CubicInOut", pose = {
+			Root = { -10, -20, 0 },
+			Neck = { 4.256, 19.949, -1.454 },
+			RightShoulder = { -8.506, 19.797, -5.1 },
+			LeftShoulder = { 90, 0, -8 },
+			RightHip = { 19.276, 17.945, 7.761 },
+			LeftHip = { 32.582, 20.594, -19.458 },
+		} },
+		{ t = 0.8, ease = "CubicInOut", pose = {
+			Root = { -8.6, -20.4, 0.8 },
+			Neck = { 4.51, 19.087, -2.319 },
+			RightShoulder = { -3.33, 20.411, -8.588 },
+			LeftShoulder = { 94.315, -2.4, -9.28 },
+			RightHip = { 20.122, 17.805, 7.287 },
+			LeftHip = { 33.291, 20.829, -20.015 },
+		} },
+		{ t = 1.6, ease = "CubicInOut", pose = {
+			Root = { -10.8, -23.2, -0.8 },
+			Neck = { 4.476, 24.792, -1.029 },
+			RightShoulder = { -10.325, 22.743, -4.226 },
+			LeftShoulder = { 88.437, 1.469, -10.169 },
+			RightHip = { 26.098, 19.959, 7.483 },
+			LeftHip = { 36.793, 23.722, -20.486 },
+		} },
+		{ t = 2.4, ease = "CubicInOut", pose = {
+			Root = { -8.8, -17.5, 1.2 },
+			Neck = { 4.496, 15.766, -2.493 },
+			RightShoulder = { -4.026, 17.54, -6.932 },
+			LeftShoulder = { 93.627, -2.34, -6.388 },
+			RightHip = { 16.195, 15.691, 7.189 },
+			LeftHip = { 31.825, 17.981, -19.329 },
+		} },
+		{ t = 3.2, ease = "CubicInOut", pose = {
+			Root = { -10, -20, 0 },
+			Neck = { 4.256, 19.949, -1.454 },
+			RightShoulder = { -8.506, 19.797, -5.1 },
+			LeftShoulder = { 90, 0, -8 },
+			RightHip = { 19.276, 17.945, 7.761 },
+			LeftHip = { 32.582, 20.594, -19.458 },
+		} },
+	} },
+	STANCE_EXIT = { duration = 0.25, loop = false, keys = {
+		{ t = 0, ease = "Linear", pose = {
+			Root = { -10, -20, 0 },
+			Neck = { 4.256, 19.949, -1.454 },
+			RightShoulder = { -8.506, 19.797, -5.1 },
+			LeftShoulder = { 90, 0, -8 },
+			RightHip = { 19.276, 17.945, 7.761 },
+			LeftHip = { 32.582, 20.594, -19.458 },
+		} },
+		{ t = 0.1167, ease = "CubicInOut", pose = {
+			Root = { -4, -10, 0 },
+			Neck = { 2.031, 9.994, -0.353 },
+			RightShoulder = { -4.061, 9.975, -5.295 },
+			LeftShoulder = { 54.416, 5.858, -0.119 },
+			RightHip = { 5.632, 9.671, 6.537 },
+			LeftHip = { 9.918, 11.043, -6.385 },
+		} },
+		{ t = 0.25, ease = "CubicOut", pose = {
+			Root = { 0, 0, 0 },
+			Neck = { 0, 0, 0 },
+			RightShoulder = { 0, 0, 0 },
+			LeftShoulder = { 0, 0, 0 },
+			RightHip = { 0, 0, 0 },
+			LeftHip = { 0, 0, 0 },
+		} },
+	} },
+	STANCE_MOVE = { duration = 0.6, loop = true, keys = {
+		{ t = 0, ease = "Linear", pose = {
+			Root = { -8, -14, 0 },
+			Neck = { 4.122, 13.965, -0.996 },
+			RightShoulder = { -4.122, 13.965, -7.004 },
+			LeftShoulder = { 78.347, 2.883, -3.706 },
+		} },
+		{ t = 0.3, ease = "CubicInOut", pose = {
+			Root = { -9, -15, 0 },
+			Neck = { 5.175, 14.942, -1.338 },
+			RightShoulder = { -1.035, 14.998, -7.732 },
+			LeftShoulder = { 82.269, 2.064, -4.861 },
+		} },
+		{ t = 0.6, ease = "CubicInOut", pose = {
+			Root = { -8, -14, 0 },
+			Neck = { 4.122, 13.965, -0.996 },
+			RightShoulder = { -4.122, 13.965, -7.004 },
+			LeftShoulder = { 78.347, 2.883, -3.706 },
+		} },
+	} },
+}
+]]></ProtectedString>
+			</Properties>
+		</Item>
+		<Item class="ModuleScript" referent="RBX9">
 			<Properties>
 				<string name="Name">VFX</string>
 				<ProtectedString name="Source"><![CDATA[-- ReplicatedStorage/Combat/VFX (ModuleScript, client-side use)

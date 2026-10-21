@@ -165,6 +165,13 @@ function handlers.Dodge(_player, character)
 	Resolver.fxAll("Pose", { character = character, name = "Dodge", fromAttacker = true })
 end
 
+-- The stance itself is played by clients; the server only publishes it so other players see it.
+function handlers.Stance(_player, character, payload)
+	if Config.Stance.Enabled then
+		character:SetAttribute("InStance", payload.on == true)
+	end
+end
+
 function handlers.Block(_player, character, payload)
 	local s = State.get(character)
 	if payload.on == true then
@@ -210,6 +217,7 @@ Players.PlayerAdded:Connect(function(player)
 		character:SetAttribute("StunEnd", 0)
 		character:SetAttribute("IFrameEnd", 0)
 		character:SetAttribute("Blocking", false)
+		character:SetAttribute("InStance", false)
 	end)
 end)
 

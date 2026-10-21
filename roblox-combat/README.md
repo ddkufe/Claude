@@ -2,8 +2,9 @@
 
 Server-validated PvP combat: M1 strings, uptilt launcher, air combos, ground
 slam with craters, wall splats, hitstun, block / parry / guard break, dodge
-dash with i-frames, sprint, and hit/impact VFX. R6 only. Works out of the box
-with procedural poses; swap in real animations whenever you have them.
+dash with i-frames, sprint, a ninja combat stance, and hit/impact VFX. R6 only.
+Works out of the box with procedural poses; swap in real animations whenever
+you have them.
 
 ## Install (Roblox Studio, about 1 minute)
 
@@ -13,7 +14,7 @@ matching file:
 
 | Right-click this in Explorer | Insert this file | You get |
 |---|---|---|
-| **ReplicatedStorage** | `dist/1_ReplicatedStorage.rbxmx` | `Combat` folder with 7 ModuleScripts |
+| **ReplicatedStorage** | `dist/1_ReplicatedStorage.rbxmx` | `Combat` folder with 9 ModuleScripts |
 | **ServerScriptService** | `dist/2_ServerScriptService.rbxmx` | `Combat` folder with the `CombatServer` Script + 2 ModuleScripts |
 | **StarterPlayer > StarterPlayerScripts** | `dist/3_StarterPlayerScripts.rbxmx` | `CombatClient` LocalScript |
 
@@ -21,6 +22,10 @@ If something lands in the wrong place, drag it to the right parent in
 Explorer: names and parents matter, the scripts find each other by them.
 The two RemoteEvents (`CombatRequest`, `CombatEvents`) are created by the
 server script automatically. Press Play to test.
+
+**Updating an earlier install?** Delete the old `Combat` folder in
+ReplicatedStorage, the old `Combat` folder in ServerScriptService and the old
+`CombatClient` first, otherwise Insert from File leaves you with duplicates.
 
 Quick test target: Avatar tab > **Rig Builder** > R6 > Block Rig, then
 punch it. For PvP, use Test > Clients and Servers with 2 players.
@@ -36,7 +41,8 @@ After editing anything in `src/`, rebuild the model files with
 | Attack (hold to chain) | M1 | R2 | "Hit" button |
 | Dodge dash (i-frames) | Q | B | "Dash" button |
 | Block / parry | F (hold; tap right before a hit to parry) | L2 | "Block" button |
-| Sprint | Left Shift (hold) | L3 | — |
+| Sprint (also relaxes the stance) | Left Shift (hold) | L3 | — |
+| Toggle combat stance | C | Y | — |
 
 ## How the moves chain
 
@@ -49,6 +55,30 @@ After editing anything in `src/`, rebuild the model files with
 - **Trades**: getting hit during your own windup cancels your swing.
 - **Dodge**: `Dodge.IFrames` seconds of invulnerability; attacks that pass through you show an afterimage.
 
+## Combat stance
+
+A ninja stance (left foot and open left hand lead, torso bladed, right hand
+drawn back by the hip) with a breathing idle, a draw-in, a relax, and an
+upper-body guard while moving. It is also the pose the M1 combo starts and ends
+in, so punches flow out of it and back into it.
+
+- **Enters** on your first attack, block or dodge (`Config.Stance.AutoEnter`),
+  or hold it with **C** / **Y** until you toggle it off.
+- **Relaxes** after `Config.Stance.ExitDelay` (3s) with no combat action, or
+  when you sprint. Standing plays the idle loop; moving swaps to the upper-body
+  guard while the default walk drives the legs. You walk at
+  `Config.Movement.StanceWalkSpeed` while in it.
+- **Other players see it** (the server publishes it as an `InStance`
+  attribute). Turn the whole thing off with `Config.Stance.Enabled = false`.
+- It plays **procedurally** from `Combat/StanceData` (generated from the same
+  keyframes as the animations) until you publish the real animations and fill
+  in all four of `Config.Animations.StanceEnter / StanceIdle / StanceExit /
+  StanceMove`; then it uses real tracks.
+
+Spec, pictures and data: `animations/STANCE_SPEC.md`,
+`animations/storyboards/stance_overview.png`, `animations/stance.json`; build
+the KeyframeSequences with `animations/BuildStanceAnimations.lua`.
+
 ## Animation spec (frame-by-frame M1 combo)
 
 `animations/` holds a 4-hit M1 string (Right Straight > Left Hook > Right
@@ -60,9 +90,10 @@ the machine-readable data is `animations/m1_combo.json`.
 
 To get actual KeyframeSequences in Studio, run
 `animations/BuildM1Animations.lua` (instructions in its header), then publish
-and paste the ids into `Config.Animations`. Rebuild everything from
-`animations/combo_data.py` with
-`pip install pillow numpy; python3 build_storyboards.py; python3 export_extras.py`.
+and paste the ids into `Config.Animations`. Rebuild everything (both the combo
+and the stance) from `animations/combo_data.py` with
+`pip install pillow numpy; python3 build_storyboards.py; python3 export_extras.py`
+(this also regenerates `Combat/StanceData.lua`; rebuild the model files after).
 
 The kit still plays its simple procedural poses until those ids are set.
 

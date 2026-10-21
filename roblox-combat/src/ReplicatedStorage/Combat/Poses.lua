@@ -72,6 +72,10 @@ Poses.Library = {
 local defaults = setmetatable({}, { __mode = "k" })
 local tokens = setmetatable({}, { __mode = "k" })
 local tracks = setmetatable({}, { __mode = "k" })
+-- character -> { [motor key] = rotation CFrame }: the pose joints return to instead of the
+-- default rest pose (used by the combat stance). busyUntil covers a release tween in flight.
+local bases = setmetatable({}, { __mode = "k" })
+local busyUntil = setmetatable({}, { __mode = "k" })
 
 local function getMotor(character, key)
 	local spec = MOTORS[key]
@@ -90,6 +94,15 @@ end
 
 local function rotated(base, r)
 	return CFrame.new(base.Position) * CFrame.Angles(r[1], r[2], r[3]) * base.Rotation
+end
+
+local function restCFrame(character, key, motor)
+	local base = baseC0(motor)
+	local rot = bases[character] and bases[character][key]
+	if rot then
+		return CFrame.new(base.Position) * rot * base.Rotation
+	end
+	return base
 end
 
 local function tweenC0(motor, goal, duration)
@@ -136,10 +149,11 @@ function Poses.release(character, name)
 		return
 	end
 	tokens[character] = nil
+	busyUntil[character] = os.clock() + 0.2
 	for key in pairs(MOTORS) do
 		local motor = getMotor(character, key)
 		if motor and defaults[motor] then
-			tweenC0(motor, defaults[motor], 0.18)
+			tweenC0(motor, restCFrame(character, key, motor), 0.18)
 		end
 	end
 end
@@ -168,7 +182,7 @@ function Poses.play(character, name, hold)
 		if motor then
 			local base = baseC0(motor)
 			local r = entry.pose[key]
-			tweenC0(motor, r and rotated(base, r) or base, 0.07)
+			tweenC0(motor, r and rotated(base, r) or restCFrame(character, key, motor), 0.07)
 		end
 	end
 
@@ -178,6 +192,30 @@ function Poses.play(character, name, hold)
 				Poses.release(character)
 			end
 		end)
+	end
+end
+
+-- Stance hooks -------------------------------------------------------------
+
+-- rotations: { Root = CFrame, Neck = ..., RS = ..., LS = ..., RH = ..., LH = ... } (rotation only,
+-- same torso-space convention as Library poses). nil clears the base (back to the default rest pose).
+function Poses.setBase(character, rotations)
+	bases[character] = rotations
+end
+
+-- True while an attack/hurt/block pose is held or its release tween is still running.
+function Poses.isBusy(character)
+	return tokens[character] ~= nil or (busyUntil[character] or 0) > os.clock()
+end
+
+-- Writes rotation-only CFrames straight onto the Motor6D C0s (no tween).
+function Poses.applyRotations(character, rotations)
+	for key, rot in pairs(rotations) do
+		local motor = getMotor(character, key)
+		if motor then
+			local base = baseC0(motor)
+			motor.C0 = CFrame.new(base.Position) * rot * base.Rotation
+		end
 	end
 end
 

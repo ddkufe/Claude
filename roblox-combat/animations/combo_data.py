@@ -55,15 +55,21 @@ def stance(rx=FR[0], rz=FR[1], lx=FL[0], lz=FL[1]):
 
 LOOK = W(-8, 0, 0)  # head stays aimed at the target while the body twists
 
-READY = dict(
-    root=[-8, -22, 0],
-    neck=LOOK,
-    rs=W(72, 0, -26),
-    ls=W(66, 0, 16),
+# The ninja combat stance (idle base). It is ALSO the combo's "Ready" pose, so every
+# punch starts from it and recovers back into it.
+#   left foot + left hand lead, torso bladed (right shoulder back), leaning in,
+#   right hand drawn back by the hip, head level on the target.
+STANCE_LOOK = W(-6, 0, 0)
+STANCE = dict(
+    root=[-10, -20, 0],
+    neck=STANCE_LOOK,
+    rs=W(-18, 0, -8),
+    ls=W(80, 0, 12),
 )
+READY = STANCE
 
 
-def ready(frame, ease, note="Guard stance, bladed: left shoulder forward, chin tucked, both hands up."):
+def ready(frame, ease, note="Combat stance: left foot and open left hand lead, torso bladed, right hand drawn back by the hip."):
     return K(frame, "Ready", READY["root"], READY["neck"], READY["rs"], READY["ls"], stance(), ease, note=note)
 
 
@@ -181,6 +187,103 @@ ATTACKS = [
               {"L": P(-0.85, -0.6), "R": W(0, 14, 34)}, "CubicInOut",
               note="Right foot is coming back toward the floor."),
             ready(51, "CubicOut", note="Planted again in guard. End lag over (Config.M1.EndLag = 0.85s)."),
+        ],
+    ),
+]
+
+
+# ======================================================================
+# Combat stance animations
+# ======================================================================
+REST = dict(root=[0, 0, 0], neck=W(0, 0, 0), rs=W(0, 0, 0), ls=W(0, 0, 0))
+
+
+def rest_key(frame, name, ease, note):
+    return K(frame, name, REST["root"], REST["neck"], REST["rs"], REST["ls"], {"L": P(-0.5, 0.0), "R": P(0.5, 0.0)}, ease, note=note)
+
+
+def idle_key(frame, name, root, neck, rs, ls, note, cue=None):
+    return K(frame, name, root, W(*neck), rs, ls, stance(), "CubicInOut", note=note, cue=cue)
+
+
+STANCE_ANIMS = [
+    dict(
+        id="STANCE_ENTER",
+        priority="Movement",
+        name="Stance: draw in",
+        short="Relaxed > coil down (anticipation) > snap the lead hand up > settle into the stance",
+        kind="oneshot",
+        lunge=False,
+        allframes_step=1,
+        keyframes=[
+            rest_key(0, "Relaxed", "Linear", "Default relaxed standing pose (arms hanging, feet together)."),
+            K(5, "Dip", [-20, -32, 0], W(-10, 0, 0), W(-34, 0, -10), W(38, 0, 10),
+              {"L": P(-1.05, -0.95), "R": P(1.0, 0.8)}, "CubicOut",
+              note="Anticipation: feet spread wide, body drops and coils, both hands pulled in toward the body.",
+              cue=["sfx: cloth snap / sharp inhale"]),
+            K(10, "Snap", [-10, -22, 0], W(-5, 0, 0), W(-28, 0, -10), W(96, 0, 10),
+              {"L": P(-0.9, -0.7), "R": P(0.9, 0.5)}, "CubicOut",
+              note="Overshoot: the lead hand snaps up past its final height, torso rises and twists into the blade.",
+              cue=["vfx: small dust puff at the feet (optional)"]),
+            ready(16, "CubicInOut", note="Settles into the stance (identical to STANCE_IDLE frame 0)."),
+        ],
+    ),
+    dict(
+        id="STANCE_IDLE",
+        priority="Movement",
+        name="Stance: idle loop (breathing)",
+        short="Held stance with two breaths and a slow weight sway; loops every 3.2s",
+        kind="loop",
+        loop=True,
+        lunge=False,
+        allframes_step=8,
+        keyframes=[
+            idle_key(0, "Exhale", STANCE["root"], (-6, 0, 0), STANCE["rs"], STANCE["ls"],
+                     "The stance pose itself, chest lowered. First and last keyframe are identical so the loop is seamless."),
+            idle_key(48, "Inhale", [-8.6, -20.4, 0.8], (-4.6, -1.2, 0), W(-12, 0, -9), W(86, 0, 11),
+                     "Chest rises, shoulders lift ~6 degrees, head lifts and drifts a touch to the right."),
+            idle_key(96, "Exhale (sway)", [-10.8, -23.2, -0.8], (-6.4, 1.6, 0), W(-20, 0, -9), W(77.5, 0, 13),
+                     "Chest lowers; torso sways a little further into the blade, head drifts back left."),
+            idle_key(144, "Inhale (sway)", [-8.8, -17.5, 1.2], (-4.8, -1.6, 0), W(-13, 0, -7), W(85, 0, 11),
+                     "Second breath; torso sways back the other way."),
+            idle_key(192, "Exhale", STANCE["root"], (-6, 0, 0), STANCE["rs"], STANCE["ls"],
+                     "Back to the exact first pose: loop point."),
+        ],
+    ),
+    dict(
+        id="STANCE_EXIT",
+        priority="Movement",
+        name="Stance: relax",
+        short="Stance > rise and loosen > relaxed standing pose",
+        kind="oneshot",
+        lunge=False,
+        allframes_step=1,
+        keyframes=[
+            ready(0, "Linear", note="Starts from the stance."),
+            K(7, "Release", [-4, -10, 0], W(-2, 0, 0), W(-8, 0, -6), W(50, 0, 8),
+              {"L": P(-0.7, -0.3), "R": P(0.7, 0.2)}, "CubicInOut",
+              note="Body rises, hands loosen and drop, feet draw back together."),
+            rest_key(15, "Relaxed", "CubicOut", "Default relaxed standing pose."),
+        ],
+    ),
+    dict(
+        id="STANCE_MOVE",
+        priority="Movement",
+        name="Stance: moving (upper body only)",
+        short="Upper-body guard layered over the default walk/run legs; torso only turns slightly so legs don't skate",
+        kind="loop",
+        loop=True,
+        upper_only=True,
+        lunge=False,
+        allframes_step=2,
+        keyframes=[
+            K(0, "Guard A", [-8, -14, 0], W(-4, 0, 0), W(-12, 0, -8), W(70, 0, 10), {"R": [0, 0, 0], "L": [0, 0, 0]}, "Linear",
+              note="Torso leans in and turns slightly (less than the idle stance), lead hand forward, rear hand back. No leg or torso-translation data: the walk animation keeps driving those.",
+              cue=["play at Movement priority while the character is moving"]),
+            K(18, "Guard B", [-9, -15, 0], W(-4, 0, 0), W(-10, 0, -8), W(73, 0, 10), {"R": [0, 0, 0], "L": [0, 0, 0]}, "CubicInOut",
+              note="Tiny bob so the upper body never freezes."),
+            K(36, "Guard A", [-8, -14, 0], W(-4, 0, 0), W(-12, 0, -8), W(70, 0, 10), {"R": [0, 0, 0], "L": [0, 0, 0]}, "CubicInOut",
+              note="Loop point: identical to the first keyframe."),
         ],
     ),
 ]

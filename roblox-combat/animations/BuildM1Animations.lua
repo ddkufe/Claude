@@ -16,16 +16,16 @@
 local ServerStorage = game:GetService("ServerStorage")
 local Selection = game:GetService("Selection")
 
--- t = seconds, ease = {style, direction}, joints = {px,py,pz, qx,qy,qz,qw}
+-- t = seconds, ease = {style, direction}, poses = { [poseName] = {px,py,pz, qx,qy,qz,qw} }
 local DATA = {
-	{ name = "M1_1", label = "Right Straight", length = 0.3333, keyframes = {
+	{ name = "M1_1", label = "Right Straight", length = 0.3333, loop = false, priority = "Action", keyframes = {
 		{ t = 0, ease = { "Linear", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 		{ t = 0.05, ease = { "Cubic", "InOut" }, poses = {
 			["Torso"] = { -0.0764, -0.0374, 0.409, 0.0876, 0.0475, -0.3555, 0.9293 },
@@ -68,22 +68,22 @@ local DATA = {
 			["Left Leg"] = { 0, 0, 0, -0.1124, 0.109, -0.2144, 0.9641 },
 		} },
 		{ t = 0.3333, ease = { "Cubic", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 	} },
-	{ name = "M1_2", label = "Left Hook", length = 0.3333, keyframes = {
+	{ name = "M1_2", label = "Left Hook", length = 0.3333, loop = false, priority = "Action", keyframes = {
 		{ t = 0, ease = { "Linear", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 		{ t = 0.05, ease = { "Cubic", "InOut" }, poses = {
 			["Torso"] = { -0.125, -0.6152, 0.1664, 0.1244, -0.0451, 0.0822, 0.9878 },
@@ -126,22 +126,22 @@ local DATA = {
 			["Left Leg"] = { 0, 0, 0, 0.0732, 0.288, -0.5168, 0.8029 },
 		} },
 		{ t = 0.3333, ease = { "Cubic", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 	} },
-	{ name = "M1_3", label = "Right Overhand", length = 0.3333, keyframes = {
+	{ name = "M1_3", label = "Right Overhand", length = 0.3333, loop = false, priority = "Action", keyframes = {
 		{ t = 0, ease = { "Linear", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 		{ t = 0.05, ease = { "Cubic", "InOut" }, poses = {
 			["Torso"] = { 0.4192, 0.2184, 0.3255, 0.0208, -0.0437, -0.3926, 0.9184 },
@@ -184,22 +184,22 @@ local DATA = {
 			["Left Leg"] = { 0, 0, 0, -0.0788, -0.0498, -0.2916, 0.952 },
 		} },
 		{ t = 0.3333, ease = { "Cubic", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 	} },
-	{ name = "M1_4", label = "Roundhouse Finisher", length = 0.85, keyframes = {
+	{ name = "M1_4", label = "Roundhouse Finisher", length = 0.85, loop = false, priority = "Action", keyframes = {
 		{ t = 0, ease = { "Linear", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 		{ t = 0.05, ease = { "Cubic", "InOut" }, poses = {
 			["Torso"] = { 0, 0, 0.3308, 0.047, 0.0229, -0.4378, 0.8976 },
@@ -258,16 +258,15 @@ local DATA = {
 			["Left Leg"] = { 0, 0, 0, -0.0958, 0.1094, -0.2058, 0.9677 },
 		} },
 		{ t = 0.85, ease = { "Cubic", "Out" }, poses = {
-			["Torso"] = { 0.1205, 0.2854, 0.1983, 0.0685, 0.0133, -0.1903, 0.9792 },
-			["Head"] = { 0, 0, 0, 0, 0, 0.1908, 0.9816 },
-			["Right Arm"] = { 0, 0, 0, 0.2887, 0.2844, 0.5819, 0.7051 },
-			["Left Arm"] = { 0, 0, 0, -0.0046, 0.0687, -0.6062, 0.7923 },
-			["Right Leg"] = { 0, 0, 0, -0.0984, 0.1578, 0.173, 0.9672 },
-			["Left Leg"] = { 0, 0, 0, -0.1089, 0.2307, -0.2199, 0.9416 },
+			["Torso"] = { 0.0972, 0.2372, 0.2003, 0.0858, 0.0151, -0.173, 0.9811 },
+			["Head"] = { 0, 0, 0, -0.0344, -0.0061, 0.1735, 0.9842 },
+			["Right Arm"] = { 0, 0, 0, 0.0564, 0.168, -0.0806, 0.9809 },
+			["Left Arm"] = { 0, 0, 0, -0.0493, 0.0493, -0.7054, 0.7054 },
+			["Right Leg"] = { 0, 0, 0, -0.092, 0.1422, 0.1754, 0.9698 },
+			["Left Leg"] = { 0, 0, 0, -0.1102, 0.2157, -0.243, 0.9393 },
 		} },
 	} },
 }
-
 local function poseCFrame(n)
 	return CFrame.new(n[1], n[2], n[3], n[4], n[5], n[6], n[7])
 end
@@ -285,8 +284,8 @@ end
 local function build(anim)
 	local sequence = Instance.new("KeyframeSequence")
 	sequence.Name = anim.name
-	sequence.Loop = false
-	sequence.Priority = Enum.AnimationPriority.Action
+	sequence.Loop = anim.loop
+	sequence.Priority = Enum.AnimationPriority[anim.priority]
 
 	for _, kf in ipairs(anim.keyframes) do
 		local keyframe = Instance.new("Keyframe")
@@ -294,6 +293,7 @@ local function build(anim)
 		keyframe.Name = string.format("%s @ %.3f", anim.label, kf.t)
 
 		-- R6 hierarchy: HumanoidRootPart > Torso > {Head, Left Arm, Right Arm, Left Leg, Right Leg}
+		-- (limbs missing from kf.poses, e.g. the legs of an upper-body-only track, are simply not created)
 		local root = Instance.new("Pose")
 		root.Name = "HumanoidRootPart"
 		root.CFrame = CFrame.new()
@@ -301,7 +301,9 @@ local function build(anim)
 		local torso = makePose("Torso", kf.poses["Torso"], kf.ease)
 		torso.Parent = root
 		for _, limb in ipairs({ "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }) do
-			makePose(limb, kf.poses[limb], kf.ease).Parent = torso
+			if kf.poses[limb] then
+				makePose(limb, kf.poses[limb], kf.ease).Parent = torso
+			end
 		end
 		keyframe:AddPose(root)
 		sequence:AddKeyframe(keyframe)

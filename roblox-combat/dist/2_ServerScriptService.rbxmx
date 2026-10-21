@@ -1,9 +1,9 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
-	<Item class="Folder" referent="RBX8">
+	<Item class="Folder" referent="RBX10">
 		<Properties>
 			<string name="Name">Combat</string>
 		</Properties>
-		<Item class="Script" referent="RBX9">
+		<Item class="Script" referent="RBX11">
 			<Properties>
 				<string name="Name">CombatServer</string>
 				<ProtectedString name="Source"><![CDATA[-- ServerScriptService/Combat/CombatServer (Script)
@@ -173,6 +173,13 @@ function handlers.Dodge(_player, character)
 	Resolver.fxAll("Pose", { character = character, name = "Dodge", fromAttacker = true })
 end
 
+-- The stance itself is played by clients; the server only publishes it so other players see it.
+function handlers.Stance(_player, character, payload)
+	if Config.Stance.Enabled then
+		character:SetAttribute("InStance", payload.on == true)
+	end
+end
+
 function handlers.Block(_player, character, payload)
 	local s = State.get(character)
 	if payload.on == true then
@@ -218,6 +225,7 @@ Players.PlayerAdded:Connect(function(player)
 		character:SetAttribute("StunEnd", 0)
 		character:SetAttribute("IFrameEnd", 0)
 		character:SetAttribute("Blocking", false)
+		character:SetAttribute("InStance", false)
 	end)
 end)
 
@@ -227,7 +235,7 @@ end)
 ]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBX10">
+		<Item class="ModuleScript" referent="RBX12">
 			<Properties>
 				<string name="Name">CombatState</string>
 				<ProtectedString name="Source"><![CDATA[-- ServerScriptService/Combat/CombatState (ModuleScript)
@@ -345,7 +353,7 @@ return CombatState
 ]]></ProtectedString>
 			</Properties>
 		</Item>
-		<Item class="ModuleScript" referent="RBX11">
+		<Item class="ModuleScript" referent="RBX13">
 			<Properties>
 				<string name="Name">HitResolver</string>
 				<ProtectedString name="Source"><![CDATA[-- ServerScriptService/Combat/HitResolver (ModuleScript)

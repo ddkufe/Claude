@@ -86,11 +86,25 @@ Config.Impact = {
 
 Config.Movement = {
 	WalkSpeed = 16,
+	StanceWalkSpeed = 14, -- while in the combat stance
 	SprintSpeed = 28,
 	AttackingSpeed = 9,
 	BlockingSpeed = 6,
 	StunnedSpeed = 3,
 	JumpPower = 50,
+}
+
+-- Ninja combat stance (see animations/STANCE_SPEC.md). Plays procedurally from
+-- Combat/StanceData until all four Config.Animations.Stance* ids are filled in.
+Config.Stance = {
+	Enabled = true,
+	AutoEnter = true, -- first attack / block / dodge drops you into the stance
+	ExitDelay = 3.0, -- seconds without a combat action before relaxing
+	ToggleKey = Enum.KeyCode.C, -- hold the stance until toggled off (gamepad: ButtonY)
+	EnterTime = 0.27, -- length of the draw-in (matches STANCE_ENTER)
+	ExitTime = 0.25, -- length of the relax (matches STANCE_EXIT)
+	BlendSpeed = 12, -- how fast idle <-> moving blends
+	MoveSpeedThreshold = 2.5, -- studs/s of horizontal speed that counts as moving
 }
 
 Config.Hit = {
@@ -116,6 +130,10 @@ Config.Animations = {
 	Block = "",
 	Dodge = "",
 	GuardBroken = "",
+	StanceEnter = "",
+	StanceIdle = "",
+	StanceExit = "",
+	StanceMove = "",
 }
 
 return Config
