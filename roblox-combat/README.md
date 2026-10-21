@@ -49,6 +49,23 @@ After editing anything in `src/`, rebuild the model files with
 - **Trades**: getting hit during your own windup cancels your swing.
 - **Dodge**: `Dodge.IFrames` seconds of invulnerability; attacks that pass through you show an afterimage.
 
+## Animation spec (frame-by-frame M1 combo)
+
+`animations/` holds a 4-hit M1 string (Right Straight > Left Hook > Right
+Overhand > Roundhouse Finisher) as pictures plus exact numbers, so the real
+animations can be recreated frame by frame. Start with
+`animations/M1_COMBO_SPEC.md`; the pictures are in `animations/storyboards/`
+(`combo_overview.png`, per-attack keyframe and every-frame sheets, a GIF) and
+the machine-readable data is `animations/m1_combo.json`.
+
+To get actual KeyframeSequences in Studio, run
+`animations/BuildM1Animations.lua` (instructions in its header), then publish
+and paste the ids into `Config.Animations`. Rebuild everything from
+`animations/combo_data.py` with
+`pip install pillow numpy; python3 build_storyboards.py; python3 export_extras.py`.
+
+The kit still plays its simple procedural poses until those ids are set.
+
 ## Tuning
 
 Everything (damage, stun, cooldowns, knockback, hitbox sizes, speeds) is in
