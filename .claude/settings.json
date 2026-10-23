@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Roblox_Studio__execute_luau",
+      "mcp__Roblox_Studio__multi_edit"
+    ]
+  }
+}
