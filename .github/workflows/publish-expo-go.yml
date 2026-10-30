@@ -31,14 +31,14 @@ jobs:
       - run: npm ci
 
       - name: Link the Expo project
-        run: npx --yes eas-cli@24 init --non-interactive --force
+        run: npx --yes eas-cli@27 init --non-interactive --force
 
       - name: Turn on over-the-air updates
-        run: npx --yes eas-cli@24 update:configure --platform ios --environment preview --non-interactive
+        run: npx --yes eas-cli@27 update:configure --platform ios --environment preview --non-interactive
 
       - name: Publish
         run: |
-          npx --yes eas-cli@24 update --branch preview --platform ios --environment preview \
+          npx --yes eas-cli@27 update --branch preview --platform ios --environment preview \
             --message "$(echo "$COMMIT_MESSAGE" | head -1)" --non-interactive --json > update.json
           cat update.json
 
