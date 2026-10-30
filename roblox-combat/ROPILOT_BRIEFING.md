@@ -29,9 +29,7 @@ Each land has a headquarters in its centre, a village ringed around it, and one 
 | Destroyed | South-east | Half-ruined fortress with scaffolding | Smoking impact crater with lava cracks |
 
 The roads meet at the Grass land, and a main road runs south between Gloomy and Destroyed.
-Reference images (the user can attach them):
-- `generations/ninjarpg_biome_map_bordered_labeled_1792607580.png`
-- `generations/ninjarpg_biome_map_bordered_clean_1792607580.png`
+Reference images: the user has a labeled version and a clean, text-free version of this map and can attach them.
 
 ## 3. Combat system (built and ready to install)
 
