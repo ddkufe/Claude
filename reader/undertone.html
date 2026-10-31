@@ -192,6 +192,9 @@ article p.figtext { text-align: center; font-weight: 700; font-size: .95em; marg
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 .map-wrap { display: grid; gap: 4px; }
+.import-note { margin: 0 0 -4px; font-size: .84rem; font-style: italic; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-note::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--gold); vertical-align: 1px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
 .map-row { display: flex; justify-content: space-between; gap: 10px; font-size: .86rem; color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 .map-row #secName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-style: italic; }
 .map-row #pct { font-weight: 700; color: var(--fg); white-space: nowrap; }
@@ -370,6 +373,7 @@ html.split { scroll-padding-top: calc(var(--top-h, 56px) + 40vh); }
 
 <div class="dock">
   <div class="dock-in">
+    <p class="import-note" id="importNote" hidden></p>
     <div class="map-wrap">
       <canvas id="map" aria-label="Mood map of the book. Tap to jump."></canvas>
       <div class="map-row"><span id="secName">Section</span><span id="pct">0%</span></div>
@@ -500,13 +504,15 @@ function scoreText(text) {
   return { sc, hits };
 }
 
-function analyze(book) {
-  // Group paragraphs into ~110-word passages (never across sections), then pick a mood per passage
-  // with hysteresis so the music does not flip on every stray word.
+function analyze(book) { return analyzeGroups(book.sections.map(s => s.paras)); }
+// Group paragraphs into ~110-word passages (never across sections), then pick a mood per passage
+// with hysteresis so the music does not flip on every stray word. Pages that arrive while a book is still
+// being read in carry on from the mood the last ones ended in (seed). Returns the mood at the end.
+function analyzeGroups(groups, seed) {
   const passages = [];
-  book.sections.forEach((sec, si) => {
+  groups.forEach((paras, si) => {
     let cur = null;
-    sec.paras.forEach((p, pi) => {
+    paras.forEach((p, pi) => {
       if (!cur) cur = { si, paras: [], text: '', words: 0 };
       cur.paras.push(p); cur.text += ' ' + p.text; cur.words += p.text.split(/\s+/).length;
       if (cur.words >= 110) { passages.push(cur); cur = null; }
@@ -514,7 +520,7 @@ function analyze(book) {
     if (cur) passages.push(cur);
   });
   const best = r => MOOD_KEYS.reduce((a, b) => r.sc[b] > r.sc[a] ? b : a);
-  let mood = null;
+  let mood = seed || null;
   for (const ps of passages) { ps.r = scoreText(ps.text); if (!mood && ps.r.sc[best(ps.r)] >= 2) mood = best(ps.r); }
   mood = mood || 'calm';
   for (const ps of passages) {
@@ -523,6 +529,7 @@ function analyze(book) {
     const cues = Object.entries(ps.r.hits[mood]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]);
     for (const p of ps.paras) { p.mood = mood; p.cues = cues; }
   }
+  return mood;
 }
 
 /* ---------------- Text → sections → paragraphs → sentences ---------------- */
@@ -563,26 +570,29 @@ function segment(text, inQuote) {
 }
 function clean(t) { return t.replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim(); }
 
-let book = null, sentences = [], idx = 0, playing = false;
+let book = null, sentences = [], idx = 0, playing = false, waitingMore = false;
 
+// Paragraphs are text, or pictures with their caption and the words found in them (read aloud as one passage).
+// A paragraph that opens with the book's own verse number keeps that number. Paragraphs from a PDF also say
+// where their lines are on the page (at); ri/rj point back to the saved paragraph, for fixing its text.
+function normPara(p, ri, rj) {
+  if (p.fig) {
+    const cap = spokenLines(p.caption || []), words = spokenLines(p.words || []);
+    return { ...p, ri, rj, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
+  }
+  const raw = typeof p === 'string' ? p : p.text, at = typeof p === 'string' ? null : p.at || null, title = !!p.title;
+  const t = clean(raw), m = !title && /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
+  return m ? { text: t.slice(m[0].length), vn: +m[1], at, skip: m[0].length, ri, rj } : { text: t, at, skip: 0, ri, rj, title };
+}
+const keepPara = p => p.fig || p.text.length > 1;
+// opts.open: the book is still being read in, and more pages will be added with extendBook.
 function loadBook(b, key, opts = {}) {
-  stopSpeech(); playing = false; setPlayIcon();
-  // Paragraphs are text, or pictures with their caption and the words found in them (read aloud as one passage).
-  // A paragraph that opens with the book's own verse number keeps that number. Paragraphs from a PDF also say
-  // where their lines are on the page (at); ri/rj point back to the saved paragraph, for fixing its text.
-  const para = (p, ri, rj) => {
-    if (p.fig) {
-      const cap = spokenLines(p.caption || []), words = spokenLines(p.words || []);
-      return { ...p, ri, rj, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
-    }
-    const raw = typeof p === 'string' ? p : p.text, at = typeof p === 'string' ? null : p.at || null, title = !!p.title;
-    const t = clean(raw), m = !title && /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
-    return m ? { text: t.slice(m[0].length), vn: +m[1], at, skip: m[0].length, ri, rj } : { text: t, at, skip: 0, ri, rj, title };
-  };
-  b.sections = b.sections.map((s, ri) => ({ title: s.title, paras: s.paras.map((p, rj) => para(p, ri, rj)).filter(p => p.fig || p.text.length > 1) })).filter(s => s.paras.length);
+  stopSpeech(); playing = false; setPlayIcon(); waitingMore = false;
+  const raw = b.sections;
+  b.sections = raw.map((s, ri) => ({ title: s.title, ri, paras: s.paras.map((p, rj) => normPara(p, ri, rj)).filter(keepPara) })).filter(s => s.paras.length);
   if (!b.sections.length) throw new Error('No readable text was found in this file.');
   analyze(b);
-  book = b; book.key = key || b.title;
+  book = b; book.key = key || b.title; book.raw = raw; book.open = !!opts.open;
   render();
   idx = Math.min(store.get('pos:' + book.key, 0), sentences.length - 1);
   store.set('len:' + book.key, sentences.length); store.set('last', book.key); store.set('seen:' + book.key, Date.now());
@@ -626,39 +636,91 @@ function tabletCard(si, first, last) {
 // and only the blocks around where you're reading are on the page. More are added as you scroll.
 const BLOCK = 240, KEEP_BLOCKS = 5, MARGIN = 1600;
 let blocks = [], mounted = [], curEl = null; // mounted: block indexes on the page, in order
+// The book is laid out section by section; a book still being read in gets its later pages added the same way.
+let rs = null; // while laying out: the block being filled and the last mood shown
 function render() {
+  startRender();
+  book.sections.forEach((sec, si) => {
+    addSection(si); addParas(si, 0);
+    if (!book.open || si < book.sections.length - 1) closeSection(si, true);
+  });
+  if (!book.open) rs.cur.items.push({ t: 'end' });
+  sealBlocks();
+}
+function startRender() {
   const art = $('#text'); art.textContent = '';
-  const chap = $('#chap'); chap.textContent = '';
+  $('#chap').textContent = '';
   sentences = []; blocks = []; mounted = []; curEl = null;
   kept = new Set(store.get('kept:' + book.key, []));
-  let prevMood = null, cur = null;
-  const newBlock = si => { cur = { si, items: [], from: sentences.length }; blocks.push(cur); };
-  book.sections.forEach((sec, si) => {
-    sec.first = sentences.length; newBlock(si);
-    cur.items.push({ t: 'head', si });
-    const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; chap.appendChild(o);
-    sec.paras.forEach((p, pi) => {
-      if (sentences.length - cur.from >= BLOCK) newBlock(si);
-      if (p.mood !== prevMood) { cur.items.push({ t: 'shift', mood: p.mood }); prevMood = p.mood; }
-      if (p.fig) { cur.items.push({ t: 'fig', p }); if (!p.text) return; }
-      const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
-      let inQuote = false, pos = 0;
-      parts.forEach((t, k) => {
-        const r = segment(t, inQuote); inQuote = r.inQuote;
-        const from = Math.max(pos, p.text.indexOf(t, pos)); pos = from + t.length;
-        sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1,
-          at: p.at ? linesOf(p, from + (p.skip || 0), pos + (p.skip || 0)) : null, para: p });
-      });
-      cur.items.push({ t: 'para', fig: !!p.fig || p.title, mood: p.mood, verse, first, last: sentences.length - 1 });
-    });
-    if (sentences.length - sec.first >= 8) cur.items.push({ t: 'card', si });
-  });
-  blocks.forEach((bl, bi) => { bl.to = (blocks[bi + 1]?.from ?? sentences.length) - 1; });
-  blocks[blocks.length - 1].items.push({ t: 'end' });
-  book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
+  rs = { prevMood: null, cur: null };
   const top = document.createElement('div'); top.id = 'blkTop';
   const bottom = document.createElement('div'); bottom.id = 'blkEnd';
   art.append(top, bottom);
+}
+function newBlock(si) { rs.cur = { si, items: [], from: sentences.length }; blocks.push(rs.cur); }
+function addSection(si) {
+  const sec = book.sections[si];
+  sec.first = sentences.length; newBlock(si);
+  rs.cur.items.push({ t: 'head', si });
+  const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; $('#chap').appendChild(o);
+}
+function addParas(si, from) {
+  const sec = book.sections[si];
+  for (let pi = from; pi < sec.paras.length; pi++) {
+    const p = sec.paras[pi];
+    if (sentences.length - rs.cur.from >= BLOCK) newBlock(si);
+    if (p.mood !== rs.prevMood) { rs.cur.items.push({ t: 'shift', mood: p.mood }); rs.prevMood = p.mood; }
+    if (p.fig) { rs.cur.items.push({ t: 'fig', p }); if (!p.text) continue; }
+    const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
+    let inQuote = false, pos = 0;
+    parts.forEach((t, k) => {
+      const r = segment(t, inQuote); inQuote = r.inQuote;
+      const from = Math.max(pos, p.text.indexOf(t, pos)); pos = from + t.length;
+      sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1,
+        at: p.at ? linesOf(p, from + (p.skip || 0), pos + (p.skip || 0)) : null, para: p });
+    });
+    rs.cur.items.push({ t: 'para', fig: !!p.fig || p.title, mood: p.mood, verse, first, last: sentences.length - 1 });
+  }
+}
+// The end of a section: a longer breath after its last sentence, and (if it isn't already on the page) its card.
+function closeSection(si, card) {
+  const sec = book.sections[si];
+  if (card && sentences.length - sec.first >= 8) rs.cur.items.push({ t: 'card', si });
+  if (sentences.length > sec.first) sentences[sentences.length - 1].secEnd = true;
+}
+function sealBlocks() { blocks.forEach((bl, bi) => { bl.to = (blocks[bi + 1]?.from ?? sentences.length) - 1; }); }
+
+// More pages of a book that's still being read in. They go into new blocks after the last one, so nothing
+// already on the screen changes and reading carries on undisturbed. items: { newSec, title, p } in raw form.
+function extendBook(items, done) {
+  const raw = book.raw, fresh = new Map(); // display section -> index of its first new paragraph
+  let lastDsi = book.sections.length - 1;
+  for (const it of items) {
+    if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] });
+    const ri = raw.length - 1, rsec = raw[ri];
+    rsec.paras.push(it.p);
+    const d = normPara(it.p, ri, rsec.paras.length - 1); if (!keepPara(d)) continue;
+    let dsec = book.sections[book.sections.length - 1];
+    if (!dsec || dsec.ri !== ri) { dsec = { title: rsec.title, ri, paras: [] }; book.sections.push(dsec); }
+    if (!fresh.has(book.sections.length - 1)) fresh.set(book.sections.length - 1, dsec.paras.length);
+    dsec.paras.push(d);
+  }
+  if (fresh.size) {
+    const seed = rs.prevMood;
+    analyzeGroups([...fresh].map(([si, from]) => book.sections[si].paras.slice(from)), seed);
+    for (const [si, from] of fresh) {
+      if (si > lastDsi) { closeSection(lastDsi, false); addSection(si); lastDsi = si; }
+      else newBlock(si);
+      addParas(si, from);
+    }
+  }
+  if (done) { closeSection(book.sections.length - 1, false); newBlock(book.sections.length - 1); rs.cur.items.push({ t: 'end' }); book.open = false; }
+  sealBlocks();
+  store.set('len:' + book.key, sentences.length);
+  drawMap(); PageView.extended();
+  // Reading had caught up with the pages read in so far: carry on.
+  if (waitingMore && playing && idx < sentences.length - 1) { waitingMore = false; idx++; speakCurrent(); }
+  else if (waitingMore && done) { waitingMore = false; pause(); }
 }
 // The printed lines a sentence was read from: those whose words overlap the sentence's place in its paragraph.
 function linesOf(p, from, to) {
@@ -995,6 +1057,7 @@ const PageView = (() => {
   addEventListener('resize', () => { if (!on) return; clearTimeout(rz); rz = setTimeout(() => { layout(); show(shown || pageOf(idx)); }, 200); });
   return {
     sync, adopt,
+    extended() { byPage = null; },
     covered() { return on && root.classList.contains('split') && scroller.closest('.pageview').getBoundingClientRect().bottom < innerHeight * 0.7 ? scroller.closest('.pageview').getBoundingClientRect().bottom : 0; },
     bookChanged() {
       byPage = null; shown = 0; vp = null; marks.textContent = '';
@@ -1009,6 +1072,7 @@ const PageView = (() => {
 // For words a scan lost or misread: edit the paragraph being read. The fix is saved with the book.
 async function fixText() {
   const s = sentences[idx], p = s?.para; if (!p) return;
+  if (book.open) { toast('You can fix text once the whole book has been read in', 3500); return; }
   const saved = await Library.get(book.key);
   const raw = saved?.sections[p.ri]?.paras[p.rj];
   if (raw == null) { toast('Only books in your library can be fixed'); return; }
@@ -1226,7 +1290,10 @@ function fillDialogSelect() {
   sel.value = [...sel.options].some(o => o.value === dialogMode) ? dialogMode : 'auto';
 }
 function advance() {
-  if (idx >= sentences.length - 1) { pause(); return; }
+  if (idx >= sentences.length - 1) {
+    if (book?.open) { waitingMore = true; toast('Reading in the next page…'); return; } // carries on when it arrives
+    pause(); return;
+  }
   idx++; speakCurrent();
 }
 
@@ -1593,7 +1660,19 @@ function loadScript(src) {
     const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load the file reader. Check your connection and try again.')); document.head.appendChild(s);
   }));
 }
-function busy(msg) { const l = $('#loading'); if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else l.hidden = true; }
+// While a book is still being read in but already open, progress goes to a quiet line above the player
+// instead of covering the screen.
+let bgImport = false;
+function busy(msg) {
+  const l = $('#loading'), n = $('#importNote');
+  if (bgImport && msg) { n.textContent = msg.replace(/…$/, '') + ' · you can listen while the rest loads'; n.hidden = false; l.hidden = true; return; }
+  if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else { l.hidden = true; n.hidden = true; }
+}
+// Only one book is read in at a time; opening another stops the one in progress (it continues from where it
+// stopped if that file is opened again).
+const ABORT = new Error('stopped');
+let importTok = 0;
+function cancelImport() { importTok++; bgImport = false; $('#importNote').hidden = true; }
 
 /* ---------------- Pictures, and the words inside them ---------------- */
 // Words that are part of a picture (or a whole scanned page) are read with Tesseract, which runs on the phone.
@@ -1895,9 +1974,12 @@ async function loadPDFJS() {
   await loadScript(base + 'pdf.min.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
 }
-async function readPDF(file, key) {
+// ctl.onBlocks(blocks, upto, page, total) is called after every page with what's been read so far; blocks
+// before upto are finished (the last paragraph may still run on to the next page). ctl.stopped() says to give up.
+async function readPDF(file, key, ctl = {}) {
   await loadPDFJS();
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  PageView.adopt(key, pdf); // kept open for the page view
   let blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
   let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0, singleColumnRun = 0;
   // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
@@ -1913,6 +1995,7 @@ async function readPDF(file, key) {
     await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li });
   };
   for (let p = start; p <= pdf.numPages; p++) {
+    if (ctl.stopped?.()) throw ABORT;
     busy('Reading page ' + p + ' of ' + pdf.numPages + '…');
     if (p > start && (p - start) % 20 === 0) { await checkpoint(p); try { await pdf.cleanup(); } catch {} }
     await new Promise(r => setTimeout(r, 0)); // let the phone tidy memory between pages
@@ -2039,24 +2122,29 @@ async function readPDF(file, key) {
       }
     }
     } finally { page.cleanup(); }
+    if (ctl.onBlocks) { const li = lastPara ? blocks.lastIndexOf(lastPara) : -1; await ctl.onBlocks(blocks, li >= 0 ? li : blocks.length, p, pdf.numPages); }
   }
   await OCR.close();
   await Library.clearImport(key);
-  // Sections: the book's own chapters when it has them, otherwise groups of ten pages.
-  const sections = []; let sec = null;
-  const hasChapters = blocks.some(b => b.chap);
-  for (const b of blocks) {
-    if (b.chap) { sec = { title: b.chap, paras: [] }; sections.push(sec); continue; }
-    if (!hasChapters) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(pdf.numPages, g * 10 + 10), paras: [] }; sections.push(sec); } }
-    if (!sec) { sec = { title: 'Opening Pages', paras: [] }; sections.push(sec); }
-    sec.paras.push(b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words, at: b.at } : b.at ? { text: b.text, at: b.at, ...(b.title && { title: true }) } : b.text);
-  }
-  sections.forEach(s => delete s.g);
-  if (!sections.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
   let title = file.name.replace(/\.pdf$/i, '');
   try { const meta = await pdf.getMetadata(); if (meta?.info?.Title && meta.info.Title.trim().length > 2 && !/^(untitled|microsoft word|document\d*)/i.test(meta.info.Title.trim())) title = meta.info.Title.trim(); } catch {}
-  PageView.adopt(key, pdf); // kept open for the page view
-  return { title, sections: sections.filter(s => s.paras.length) };
+  return { title, blocks, total: pdf.numPages };
+}
+// Turns what the PDF reader found into the book's sections and paragraphs, a few at a time as pages are read:
+// the book's own chapters, or groups of ten pages until the first chapter heading turns up.
+function sectioner(total) {
+  let sec = null, seenChap = false, pending = null;
+  return blocks => {
+    const out = [];
+    for (const b of blocks) {
+      if (b.chap) { seenChap = true; pending = b.chap; continue; }
+      let newSec = false;
+      if (pending) { sec = { title: pending }; pending = null; newSec = true; }
+      else if (!seenChap) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(total, g * 10 + 10) }; newSec = true; } }
+      out.push({ newSec, title: sec.title, p: b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words, at: b.at } : b.at ? { text: b.text, at: b.at, ...(b.title && { title: true }) } : b.text });
+    }
+    return out;
+  };
 }
 
 async function readEPUB(file, key) {
@@ -2134,14 +2222,15 @@ function readText(name, text) {
 
 async function openFile(file) {
   if (!file) return;
-  pause();
+  pause(); cancelImport();
+  const my = importTok;
   busy('Opening ' + file.name + '…');
   try {
     const ext = file.name.split('.').pop().toLowerCase();
     let b;
     const key = file.name + ':' + file.size;
     if (ext !== 'pdf') await Library.removeImages(key); // a PDF clears them itself unless it's continuing an import
-    if (ext === 'pdf' || file.type === 'application/pdf') { await Library.putFile(key, file); b = await readPDF(file, key); }
+    if (ext === 'pdf' || file.type === 'application/pdf') { await openPDF(file, key, my); return; }
     else if (ext === 'epub') b = await readEPUB(file, key);
     else if (ext === 'txt' || ext === 'md' || file.type.startsWith('text/')) b = readText(file.name, await file.text());
     else throw new Error('That file type isn’t supported. Open a PDF, EPUB or plain text file.');
@@ -2158,12 +2247,51 @@ async function openFile(file) {
       : ' is ready. Press play, or tap a sentence to start from there. This browser wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
     busy(null);
   } catch (err) {
-    busy(null);
+    if (err === ABORT || my !== importTok) return; // another book was opened meanwhile
+    busy(null); bgImport = false;
     $('#notice').innerHTML = '';
     const s = document.createElement('strong'); s.textContent = 'Couldn’t open ' + file.name + '. ';
     $('#notice').append(s, err.message || String(err));
     $('#notice').scrollIntoView({ block: 'center' });
   }
+}
+// A PDF opens as soon as its first pages are read; the rest is read in behind while you listen, and the
+// book is saved to the library once it's all in.
+async function openPDF(file, key, my) {
+  await Library.putFile(key, file);
+  const name = file.name.replace(/\.pdf$/i, ''), raw = [];
+  let toItems = null, taken = 0, shown = false;
+  const stopped = () => my !== importTok;
+  const say = (strong, rest) => { $('#notice').innerHTML = ''; const st = document.createElement('strong'); st.textContent = strong; $('#notice').append(st, rest); };
+  const onBlocks = async (blocks, upto, page, total) => {
+    if (stopped()) throw ABORT;
+    toItems ||= sectioner(total);
+    const items = toItems(blocks.slice(taken, upto)); taken = upto;
+    if (shown) { if (items.length) extendBook(items, false); return; }
+    for (const it of items) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
+    // Open the book once a few pages are in (or straight away when continuing an interrupted import).
+    if (raw.some(s => s.paras.length) && (page >= Math.min(total, 2) || page === total)) {
+      try { loadBook({ title: name, sections: raw }, key, { open: true }); } catch { return; } // nothing readable yet
+      shown = true; bgImport = page < total;
+      say(name, page < total ? ' is open. Press play to start listening; the rest of the book is still being read in and is added as you go.' : '');
+      busy(null); if (bgImport) busy('Reading page ' + page + ' of ' + total);
+    }
+  };
+  const r = await readPDF(file, key, { onBlocks, stopped });
+  if (stopped()) return;
+  const rest = toItems ? toItems(r.blocks.slice(taken)) : [];
+  if (!shown) {
+    for (const it of rest) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
+    if (!raw.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
+    loadBook({ title: r.title, sections: raw }, key);
+  } else extendBook(rest, true);
+  bgImport = false; busy(null);
+  book.title = r.title; $('#bookTitle').textContent = r.title;
+  const saved = await Library.put({ key, title: r.title, sections: JSON.parse(JSON.stringify(raw)), added: Date.now() });
+  if (!saved) Library.removeFile(key);
+  say(r.title, saved
+    ? ' is all read in and saved to your library. It will reopen where you stop.'
+    : ' is all read in. This phone wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
 }
 $('#file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
 addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop'); });
@@ -2198,7 +2326,7 @@ const SAMPLE = { title: 'The Keeper of Gull Point', sections: [
 ] };
 
 const SAMPLE_KEY = 'sample-gull-point';
-function openSample() { pause(); loadBook(JSON.parse(JSON.stringify(SAMPLE)), SAMPLE_KEY); }
+function openSample() { pause(); cancelImport(); loadBook(JSON.parse(JSON.stringify(SAMPLE)), SAMPLE_KEY); }
 
 /* ---------------- Library: books you've opened, kept in this browser ---------------- */
 const Library = (() => {
@@ -2276,6 +2404,7 @@ async function renderLibrary() {
 async function openSaved(key) {
   toggleLibrary(false);
   if (book && book.key === key) return;
+  cancelImport();
   if (key === SAMPLE_KEY) { openSample(); return; }
   busy('Opening…');
   const b = await Library.get(key);
