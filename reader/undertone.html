@@ -192,6 +192,9 @@ article p.figtext { text-align: center; font-weight: 700; font-size: .95em; marg
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 .map-wrap { display: grid; gap: 4px; }
+.import-note { margin: 0 0 -4px; font-size: .84rem; font-style: italic; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-note::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--gold); vertical-align: 1px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
 .map-row { display: flex; justify-content: space-between; gap: 10px; font-size: .86rem; color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 .map-row #secName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-style: italic; }
 .map-row #pct { font-weight: 700; color: var(--fg); white-space: nowrap; }
@@ -264,10 +267,42 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .toast.long { white-space: normal; width: min(92vw, 440px); font-family: var(--f-read); font-size: .95rem; letter-spacing: 0; line-height: 1.4; padding: 12px 16px; text-align: left; }
 .toast.long.on { pointer-events: auto; }
 
+/* The book's own page, above the text on a phone held upright, beside it when the phone is on its side */
+.pageview { display: none; }
+html.split .pageview {
+  display: flex; flex-direction: column; position: fixed; z-index: 4; left: 0; right: 0; top: var(--top-h, 56px); height: 40vh;
+  background: var(--surface); border-bottom: 3px double var(--rule); box-shadow: 0 12px 30px -18px rgba(0,0,0,.7);
+}
+html.split main { padding-top: calc(40vh + 18px); }
+html.split { scroll-padding-top: calc(var(--top-h, 56px) + 40vh); }
+.pv-bar { display: flex; align-items: center; gap: 4px; padding: 3px max(8px, env(safe-area-inset-right, 0px)) 3px max(8px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); }
+.pv-bar .ib { width: 34px; height: 34px; }
+.pv-bar .btn { padding: 6px 9px; }
+#pvNum { font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; color: var(--muted); font-size: .92rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pv-gap { flex: 1 1 auto; }
+.pv-scroll { flex: 1 1 auto; overflow: auto; -webkit-overflow-scrolling: touch; background: color-mix(in srgb, var(--bg) 70%, #555); overscroll-behavior: contain; }
+.pv-wrap { position: relative; margin: 0 auto; cursor: pointer; }
+.pv-wrap canvas { display: block; background: #fff; }
+.pv-marks { position: absolute; inset: 0; pointer-events: none; }
+.pv-mark { position: absolute; background: rgba(230,170,40,.28); box-shadow: 0 0 0 2px rgba(214,150,30,.85); border-radius: 2px; }
+.pv-msg { margin: 0; padding: 14px 16px; font-style: italic; color: var(--muted); line-height: 1.45; }
+@media (orientation: landscape) and (min-width: 640px) {
+  html.split .pageview { bottom: var(--dock-h, 150px); height: auto; width: 50vw; right: auto; border-bottom: 0; border-right: 3px double var(--rule); }
+  html.split main { padding-top: 24px; margin-left: 50vw; margin-right: 0; max-width: none; }
+  html.split { scroll-padding-top: var(--top-h, 56px); }
+}
+#pageBtn[aria-pressed="true"] { border-color: var(--gold); background: var(--hl); }
+.fix-dlg { width: min(560px, calc(100vw - 32px)); background: var(--raised); color: var(--fg); border: 3px solid var(--rule); padding: 16px; }
+.fix-dlg::backdrop { background: rgba(0,0,0,.55); }
+.fix-dlg h3 { margin: 0 0 6px; font-family: var(--f-cap); font-size: .72rem; letter-spacing: .18em; color: var(--muted); }
+.fix-dlg textarea { width: 100%; box-sizing: border-box; min-height: 34vh; font: inherit; font-size: 1.05rem; line-height: 1.45; background: var(--paper); color: var(--fg); border: 1px solid var(--line); border-radius: 3px; padding: 10px; }
+.fix-dlg .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
 @media (max-width: 520px) {
   .brand span { display: none; }
   select.chap { max-width: 130px; }
   .btn .lbl-long { display: none; }
+  .top-actions:has(#pageBtn:not([hidden])) .lbl-narrow { display: none; } /* room for four buttons on one line */
   .ib.skip { width: 34px; }
   .mood-txt small { display: none; }
   :root { --read-size: 1.14rem; }
@@ -285,9 +320,13 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
     <button class="brand" id="brand" type="button" aria-label="Show the cover"><b class="foil">Undertone</b><span id="bookTitle">The Keeper of Gull Point</span></button>
     <div class="top-actions">
       <select class="chap" id="chap" aria-label="Jump to section"></select>
-      <button class="btn" id="libBtn" type="button" aria-expanded="false" aria-controls="lib">
+      <button class="btn" id="libBtn" type="button" aria-expanded="false" aria-controls="lib" aria-label="Library">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M9 4v16M14 5l5 15"/></svg>
-        Library
+        <span class="lbl-narrow">Library</span>
+      </button>
+      <button class="btn" id="pageBtn" type="button" aria-pressed="false" aria-controls="pageview" aria-label="Show the book's page" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="18" rx="1"/><path d="M15 6h6M15 10h6M15 14h6M15 18h4"/></svg>
+        <span class="lbl-narrow">Page</span>
       </button>
       <label class="btn" for="file">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6.5A2.5 2.5 0 0 0 4 21.5 2.5 2.5 0 0 0 6.5 24"/><path d="M12 7v6M9 10h6"/></svg>
@@ -297,6 +336,28 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
     </div>
   </div>
 </header>
+
+<section class="pageview" id="pageview" aria-label="The book's own page">
+  <div class="pv-bar">
+    <button class="ib" id="pvPrev" type="button" aria-label="Previous page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <span id="pvNum">Page</span>
+    <button class="ib" id="pvNext" type="button" aria-label="Next page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+    <button class="btn" id="pvFollow" type="button" hidden>Follow</button>
+    <span class="pv-gap"></span>
+    <button class="btn" id="pvZoom" type="button" aria-label="Zoom the page">1×</button>
+    <button class="btn" id="pvFix" type="button">Fix text</button>
+    <button class="ib" id="pvClose" type="button" aria-label="Close the page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <p class="pv-msg" id="pvMsg" hidden></p>
+  <div class="pv-scroll" id="pvScroll"><div class="pv-wrap" id="pvWrap"><canvas id="pvCanvas" width="0" height="0"></canvas><div class="pv-marks" id="pvMarks"></div></div></div>
+</section>
+
+<dialog class="fix-dlg" id="fixDlg">
+  <h3 id="fixHead">FIX THIS PARAGRAPH</h3>
+  <p class="tip" id="fixTip">Type in anything the reader left out or got wrong. It reads your words from now on.</p>
+  <textarea id="fixText" spellcheck="true"></textarea>
+  <div class="row"><button class="btn" id="fixCancel" type="button">Cancel</button><button class="btn" id="fixSave" type="button">Save</button></div>
+</dialog>
 
 <main id="main">
   <section class="lib" id="lib" hidden aria-label="Your library">
@@ -312,6 +373,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 
 <div class="dock">
   <div class="dock-in">
+    <p class="import-note" id="importNote" hidden></p>
     <div class="map-wrap">
       <canvas id="map" aria-label="Mood map of the book. Tap to jump."></canvas>
       <div class="map-row"><span id="secName">Section</span><span id="pct">0%</span></div>
@@ -442,13 +504,15 @@ function scoreText(text) {
   return { sc, hits };
 }
 
-function analyze(book) {
-  // Group paragraphs into ~110-word passages (never across sections), then pick a mood per passage
-  // with hysteresis so the music does not flip on every stray word.
+function analyze(book) { return analyzeGroups(book.sections.map(s => s.paras)); }
+// Group paragraphs into ~110-word passages (never across sections), then pick a mood per passage
+// with hysteresis so the music does not flip on every stray word. Pages that arrive while a book is still
+// being read in carry on from the mood the last ones ended in (seed). Returns the mood at the end.
+function analyzeGroups(groups, seed) {
   const passages = [];
-  book.sections.forEach((sec, si) => {
+  groups.forEach((paras, si) => {
     let cur = null;
-    sec.paras.forEach((p, pi) => {
+    paras.forEach((p, pi) => {
       if (!cur) cur = { si, paras: [], text: '', words: 0 };
       cur.paras.push(p); cur.text += ' ' + p.text; cur.words += p.text.split(/\s+/).length;
       if (cur.words >= 110) { passages.push(cur); cur = null; }
@@ -456,7 +520,7 @@ function analyze(book) {
     if (cur) passages.push(cur);
   });
   const best = r => MOOD_KEYS.reduce((a, b) => r.sc[b] > r.sc[a] ? b : a);
-  let mood = null;
+  let mood = seed || null;
   for (const ps of passages) { ps.r = scoreText(ps.text); if (!mood && ps.r.sc[best(ps.r)] >= 2) mood = best(ps.r); }
   mood = mood || 'calm';
   for (const ps of passages) {
@@ -465,6 +529,7 @@ function analyze(book) {
     const cues = Object.entries(ps.r.hits[mood]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]);
     for (const p of ps.paras) { p.mood = mood; p.cues = cues; }
   }
+  return mood;
 }
 
 /* ---------------- Text → sections → paragraphs → sentences ---------------- */
@@ -505,24 +570,29 @@ function segment(text, inQuote) {
 }
 function clean(t) { return t.replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim(); }
 
-let book = null, sentences = [], idx = 0, playing = false;
+let book = null, sentences = [], idx = 0, playing = false, waitingMore = false;
 
-function loadBook(b, key) {
-  stopSpeech(); playing = false; setPlayIcon();
-  // Paragraphs are text, or pictures with their caption and the words found in them (read aloud as one passage).
-  // A paragraph that opens with the book's own verse number keeps that number.
-  const para = p => {
-    if (typeof p !== 'string') {
-      const cap = spokenLines(p.caption || []), words = spokenLines(p.words || []);
-      return { ...p, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
-    }
-    const t = clean(p), m = /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
-    return m ? { text: t.slice(m[0].length), vn: +m[1] } : { text: t };
-  };
-  b.sections = b.sections.map(s => ({ title: s.title, paras: s.paras.map(para).filter(p => p.fig || p.text.length > 1) })).filter(s => s.paras.length);
+// Paragraphs are text, or pictures with their caption and the words found in them (read aloud as one passage).
+// A paragraph that opens with the book's own verse number keeps that number. Paragraphs from a PDF also say
+// where their lines are on the page (at); ri/rj point back to the saved paragraph, for fixing its text.
+function normPara(p, ri, rj) {
+  if (p.fig) {
+    const cap = spokenLines(p.caption || []), words = spokenLines(p.words || []);
+    return { ...p, ri, rj, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
+  }
+  const raw = typeof p === 'string' ? p : p.text, at = typeof p === 'string' ? null : p.at || null, title = !!p.title;
+  const t = clean(raw), m = !title && /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
+  return m ? { text: t.slice(m[0].length), vn: +m[1], at, skip: m[0].length, ri, rj } : { text: t, at, skip: 0, ri, rj, title };
+}
+const keepPara = p => p.fig || p.text.length > 1;
+// opts.open: the book is still being read in, and more pages will be added with extendBook.
+function loadBook(b, key, opts = {}) {
+  stopSpeech(); playing = false; setPlayIcon(); waitingMore = false;
+  const raw = b.sections;
+  b.sections = raw.map((s, ri) => ({ title: s.title, ri, paras: s.paras.map((p, rj) => normPara(p, ri, rj)).filter(keepPara) })).filter(s => s.paras.length);
   if (!b.sections.length) throw new Error('No readable text was found in this file.');
   analyze(b);
-  book = b; book.key = key || b.title;
+  book = b; book.key = key || b.title; book.raw = raw; book.open = !!opts.open;
   render();
   idx = Math.min(store.get('pos:' + book.key, 0), sentences.length - 1);
   store.set('len:' + book.key, sentences.length); store.set('last', book.key); store.set('seen:' + book.key, Date.now());
@@ -530,7 +600,8 @@ function loadBook(b, key) {
   document.title = 'Undertone Reader';
   setCurrent(idx, true);
   drawMap();
-  showCover();
+  PageView.bookChanged();
+  if (!opts.keepPlace) showCover();
 }
 
 // Chapter headings read like the book: "CHAPTER ONE", the title, then a stippled bar giving the tablet range.
@@ -565,37 +636,98 @@ function tabletCard(si, first, last) {
 // and only the blocks around where you're reading are on the page. More are added as you scroll.
 const BLOCK = 240, KEEP_BLOCKS = 5, MARGIN = 1600;
 let blocks = [], mounted = [], curEl = null; // mounted: block indexes on the page, in order
+// The book is laid out section by section; a book still being read in gets its later pages added the same way.
+let rs = null; // while laying out: the block being filled and the last mood shown
 function render() {
+  startRender();
+  book.sections.forEach((sec, si) => {
+    addSection(si); addParas(si, 0);
+    if (!book.open || si < book.sections.length - 1) closeSection(si, true);
+  });
+  if (!book.open) rs.cur.items.push({ t: 'end' });
+  sealBlocks();
+}
+function startRender() {
   const art = $('#text'); art.textContent = '';
-  const chap = $('#chap'); chap.textContent = '';
+  $('#chap').textContent = '';
   sentences = []; blocks = []; mounted = []; curEl = null;
   kept = new Set(store.get('kept:' + book.key, []));
-  let prevMood = null, cur = null;
-  const newBlock = si => { cur = { si, items: [], from: sentences.length }; blocks.push(cur); };
-  book.sections.forEach((sec, si) => {
-    sec.first = sentences.length; newBlock(si);
-    cur.items.push({ t: 'head', si });
-    const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; chap.appendChild(o);
-    sec.paras.forEach((p, pi) => {
-      if (sentences.length - cur.from >= BLOCK) newBlock(si);
-      if (p.mood !== prevMood) { cur.items.push({ t: 'shift', mood: p.mood }); prevMood = p.mood; }
-      if (p.fig) { cur.items.push({ t: 'fig', p }); if (!p.text) return; }
-      const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
-      let inQuote = false;
-      parts.forEach((t, k) => {
-        const r = segment(t, inQuote); inQuote = r.inQuote;
-        sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1 });
-      });
-      cur.items.push({ t: 'para', fig: !!p.fig, mood: p.mood, verse, first, last: sentences.length - 1 });
-    });
-    if (sentences.length - sec.first >= 8) cur.items.push({ t: 'card', si });
-  });
-  blocks.forEach((bl, bi) => { bl.to = (blocks[bi + 1]?.from ?? sentences.length) - 1; });
-  blocks[blocks.length - 1].items.push({ t: 'end' });
-  book.sections.forEach((sec, si) => { const last = (book.sections[si + 1]?.first ?? sentences.length) - 1; if (sentences[last]) sentences[last].secEnd = true; });
+  rs = { prevMood: null, cur: null };
   const top = document.createElement('div'); top.id = 'blkTop';
   const bottom = document.createElement('div'); bottom.id = 'blkEnd';
   art.append(top, bottom);
+}
+function newBlock(si) { rs.cur = { si, items: [], from: sentences.length }; blocks.push(rs.cur); }
+function addSection(si) {
+  const sec = book.sections[si];
+  sec.first = sentences.length; newBlock(si);
+  rs.cur.items.push({ t: 'head', si });
+  const o = document.createElement('option'); o.value = si; o.textContent = (si + 1) + '. ' + sec.title; $('#chap').appendChild(o);
+}
+function addParas(si, from) {
+  const sec = book.sections[si];
+  for (let pi = from; pi < sec.paras.length; pi++) {
+    const p = sec.paras[pi];
+    if (sentences.length - rs.cur.from >= BLOCK) newBlock(si);
+    if (p.mood !== rs.prevMood) { rs.cur.items.push({ t: 'shift', mood: p.mood }); rs.prevMood = p.mood; }
+    if (p.fig) { rs.cur.items.push({ t: 'fig', p }); if (!p.text) continue; }
+    const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
+    let inQuote = false, pos = 0;
+    parts.forEach((t, k) => {
+      const r = segment(t, inQuote); inQuote = r.inQuote;
+      const from = Math.max(pos, p.text.indexOf(t, pos)); pos = from + t.length;
+      sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1,
+        at: p.at ? linesOf(p, from + (p.skip || 0), pos + (p.skip || 0)) : null, para: p });
+    });
+    rs.cur.items.push({ t: 'para', fig: !!p.fig || p.title, mood: p.mood, verse, first, last: sentences.length - 1 });
+  }
+}
+// The end of a section: a longer breath after its last sentence, and (if it isn't already on the page) its card.
+function closeSection(si, card) {
+  const sec = book.sections[si];
+  if (card && sentences.length - sec.first >= 8) rs.cur.items.push({ t: 'card', si });
+  if (sentences.length > sec.first) sentences[sentences.length - 1].secEnd = true;
+}
+function sealBlocks() { blocks.forEach((bl, bi) => { bl.to = (blocks[bi + 1]?.from ?? sentences.length) - 1; }); }
+
+// More pages of a book that's still being read in. They go into new blocks after the last one, so nothing
+// already on the screen changes and reading carries on undisturbed. items: { newSec, title, p } in raw form.
+function extendBook(items, done) {
+  const raw = book.raw, fresh = new Map(); // display section -> index of its first new paragraph
+  let lastDsi = book.sections.length - 1;
+  for (const it of items) {
+    if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] });
+    const ri = raw.length - 1, rsec = raw[ri];
+    rsec.paras.push(it.p);
+    const d = normPara(it.p, ri, rsec.paras.length - 1); if (!keepPara(d)) continue;
+    let dsec = book.sections[book.sections.length - 1];
+    if (!dsec || dsec.ri !== ri) { dsec = { title: rsec.title, ri, paras: [] }; book.sections.push(dsec); }
+    if (!fresh.has(book.sections.length - 1)) fresh.set(book.sections.length - 1, dsec.paras.length);
+    dsec.paras.push(d);
+  }
+  if (fresh.size) {
+    const seed = rs.prevMood;
+    analyzeGroups([...fresh].map(([si, from]) => book.sections[si].paras.slice(from)), seed);
+    for (const [si, from] of fresh) {
+      if (si > lastDsi) { closeSection(lastDsi, false); addSection(si); lastDsi = si; }
+      else newBlock(si);
+      addParas(si, from);
+    }
+  }
+  if (done) { closeSection(book.sections.length - 1, false); newBlock(book.sections.length - 1); rs.cur.items.push({ t: 'end' }); book.open = false; }
+  sealBlocks();
+  store.set('len:' + book.key, sentences.length);
+  drawMap(); PageView.extended();
+  // Reading had caught up with the pages read in so far: carry on.
+  if (waitingMore && playing && idx < sentences.length - 1) { waitingMore = false; idx++; speakCurrent(); }
+  else if (waitingMore && done) { waitingMore = false; pause(); }
+}
+// The printed lines a sentence was read from: those whose words overlap the sentence's place in its paragraph.
+function linesOf(p, from, to) {
+  const at = p.at; if (!at.length) return null;
+  if (p.fig || at[0].length < 6) return at;
+  const out = at.filter((l, i) => l[5] < to && (at[i + 1]?.[5] ?? Infinity) > from);
+  return out.length ? out : [at[0]];
 }
 // Make the page for one block.
 function buildBlock(bi) {
@@ -784,8 +916,9 @@ function setCurrent(i, forceScroll) {
   if (!s.el) { mountAround(s.b); forceScroll = true; } // jumped somewhere that isn't on the page yet
   curEl = s.el; curEl.classList.add('now');
   if ($('#follow').checked || forceScroll) {
-    const r = curEl.getBoundingClientRect(), vh = innerHeight;
-    if (forceScroll || r.top < vh * 0.18 || r.bottom > vh * 0.62) curEl.scrollIntoView({ block: 'center', behavior: reduced || forceScroll ? 'auto' : 'smooth' });
+    // The page view covers the top of the screen on a phone held upright; keep the sentence in the part below it.
+    const r = curEl.getBoundingClientRect(), vh = innerHeight, top = PageView.covered(), room = vh - top;
+    if (forceScroll || r.top < top + room * 0.18 || r.bottom > top + room * 0.62) curEl.scrollIntoView({ block: 'center', behavior: reduced || forceScroll ? 'auto' : 'smooth' });
   }
   $('#secName').textContent = book.sections[s.si].title;
   $('#pct').textContent = 'Tablet ' + (s.si + 1) + ':' + s.vn + ' · ' + Math.round(i / Math.max(1, sentences.length - 1) * 100) + '%';
@@ -793,6 +926,7 @@ function setCurrent(i, forceScroll) {
   $('#chap').value = s.si;
   showMood(i); drawMap(); updateNowPlaying();
   store.set('pos:' + book.key, i);
+  PageView.sync(i);
 }
 function seek(i, scroll) {
   setCurrent(i, scroll);
@@ -802,6 +936,169 @@ $('#text').addEventListener('click', e => { const sp = e.target.closest('.s'); i
 $('#chap').addEventListener('change', e => seek(book.sections[+e.target.value].first, true));
 $('#prev').addEventListener('click', () => seek(Math.max(0, idx - 1), false));
 $('#next').addEventListener('click', () => seek(Math.min(sentences.length - 1, idx + 1), false));
+
+/* ---------------- The book's page beside the text ---------------- */
+// Shows the PDF's own page with the lines being read lit up, so you can see the reading keeps to the page and
+// catch anything it skipped. Tap a line on the page to read from there; Fix text puts right a paragraph that
+// was misread. The PDF is kept in the library with the book, so this works whenever the book is reopened.
+const PageView = (() => {
+  const root = document.documentElement, scroller = $('#pvScroll'), wrap = $('#pvWrap'), cv = $('#pvCanvas'), marks = $('#pvMarks');
+  let on = false, doc = null, docKey = null, loading = null, shown = 0, shownW = 0, follow = true, zoom = 1, vp = null, task = null, tok = 0, byPage = null;
+  const isPDF = () => !!book && /\.pdf:\d+$/i.test(book.key);
+  const ZOOMS = [1, 1.6, 2.2];
+  function layout() {
+    root.style.setProperty('--top-h', $('.top').offsetHeight + 'px');
+    root.style.setProperty('--dock-h', $('.dock').offsetHeight + 'px');
+  }
+  function message(t) { $('#pvMsg').textContent = t || ''; $('#pvMsg').hidden = !t; scroller.hidden = !!t; }
+  async function getDoc() {
+    if (!book) return null;
+    if (doc && docKey === book.key) return doc;
+    const key = book.key;
+    if (loading && loading.key === key) return loading.p;
+    const p = (async () => {
+      const f = await Library.getFile(key); if (!f) return null;
+      await loadPDFJS();
+      const d = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      if (book?.key !== key) { d.destroy(); return null; }
+      adopt(key, d); return d;
+    })().catch(() => null);
+    loading = { key, p };
+    try { return await p; } finally { if (loading?.p === p) loading = null; }
+  }
+  function adopt(key, d) { if (doc && doc !== d) try { doc.destroy(); } catch {} doc = d; docKey = key; }
+  // Every sentence's lines, by page, for finding what was tapped.
+  function onPage(n) {
+    if (!byPage) { byPage = new Map(); sentences.forEach((s, i) => s.at?.forEach(l => { if (!byPage.has(l[0])) byPage.set(l[0], []); byPage.get(l[0]).push([i, l]); })); }
+    return byPage.get(n) || [];
+  }
+  const pageOf = i => sentences[i]?.at?.[0]?.[0] || 0;
+  async function show(n, i = idx) {
+    const my = ++tok;
+    const d = await getDoc(); if (my !== tok) return;
+    if (!d) { vp = null; message(isPDF() ? 'This book’s PDF isn’t saved on this phone yet. Open the same PDF again with Open book to see its pages here. You’ll keep your place.' : 'Page view is for PDF books.'); return; }
+    if (!sentences.some(s => s.at)) message('This book was read in before page view existed. Open the same PDF again with Open book so the reader learns where each line is. You’ll keep your place.');
+    else message('');
+    n = Math.max(1, Math.min(d.numPages, n || 1));
+    const cssW = Math.max(200, scroller.clientWidth) * zoom;
+    if (n !== shown || Math.abs(cssW - shownW) > 2) {
+      const page = await d.getPage(n); if (my !== tok) return;
+      const base = page.getViewport({ scale: 1 }), sc = cssW / base.width, dpr = Math.min(2, devicePixelRatio || 1);
+      const c = document.createElement('canvas'), rvp = page.getViewport({ scale: sc * dpr });
+      c.width = Math.ceil(rvp.width); c.height = Math.ceil(rvp.height);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      try { task?.cancel(); } catch {}
+      task = page.render({ canvasContext: g, viewport: rvp });
+      try { await task.promise; } catch { drop(c); return; } finally { page.cleanup(); }
+      if (my !== tok) { drop(c); return; }
+      vp = page.getViewport({ scale: sc });
+      cv.width = c.width; cv.height = c.height; cv.getContext('2d').drawImage(c, 0, 0); drop(c);
+      cv.style.width = wrap.style.width = vp.width + 'px'; cv.style.height = wrap.style.height = vp.height + 'px';
+      shown = n; shownW = cssW;
+      $('#pvNum').textContent = 'Page ' + n + ' of ' + d.numPages;
+    }
+    mark(i);
+  }
+  // Light up the lines of sentence i that are on the page shown, and bring them into view.
+  function mark(i) {
+    marks.textContent = '';
+    const s = sentences[i]; if (!s?.at || !vp) return;
+    let first = null;
+    for (const l of s.at) {
+      if (l[0] !== shown || l.length < 5) continue;
+      const [a, b, c, d] = vp.convertToViewportRectangle([l[1], l[4], l[3], l[2]]);
+      const m = document.createElement('i'); m.className = 'pv-mark';
+      m.style.left = Math.min(a, c) - 3 + 'px'; m.style.top = Math.min(b, d) - 2 + 'px';
+      m.style.width = Math.abs(c - a) + 6 + 'px'; m.style.height = Math.abs(d - b) + 4 + 'px';
+      marks.appendChild(m); first ||= m;
+    }
+    if (first && follow) {
+      const top = first.offsetTop - scroller.clientHeight * 0.35, left = zoom > 1 ? first.offsetLeft - 12 : 0;
+      scroller.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: reduced ? 'auto' : 'smooth' });
+    }
+  }
+  function setFollow(f) { follow = f; $('#pvFollow').hidden = f; }
+  function sync(i) {
+    if (!on || !follow) return;
+    const n = pageOf(i);
+    if (n) show(n, i); else if (!shown) show(1, i); else mark(i);
+  }
+  function toggle(force) {
+    on = force ?? !on;
+    if (on && !isPDF()) { on = false; toast('Page view is for PDF books'); }
+    store.set('pageView', on);
+    root.classList.toggle('split', on);
+    $('#pageBtn').setAttribute('aria-pressed', String(on));
+    if (on) { layout(); setFollow(true); shown = 0; show(pageOf(idx) || 1); if (curEl) setTimeout(() => setCurrent(idx, true), 50); }
+    else { tok++; marks.textContent = ''; }
+  }
+  $('#pageBtn').addEventListener('click', () => toggle());
+  $('#pvClose').addEventListener('click', () => toggle(false));
+  $('#pvPrev').addEventListener('click', () => { setFollow(false); show((shown || 1) - 1); });
+  $('#pvNext').addEventListener('click', () => { setFollow(false); show((shown || 0) + 1); });
+  $('#pvFollow').addEventListener('click', () => { setFollow(true); show(pageOf(idx) || shown); });
+  $('#pvZoom').addEventListener('click', () => { zoom = ZOOMS[(ZOOMS.indexOf(zoom) + 1) % ZOOMS.length]; $('#pvZoom').textContent = zoom + '×'; show(shown); });
+  // Tap a line on the page to read from it. A spot with no line under it is text the reader didn't pick up.
+  wrap.addEventListener('click', e => {
+    if (!vp) return;
+    const r = wrap.getBoundingClientRect(), [x, y] = vp.convertToPdfPoint(e.clientX - r.left, e.clientY - r.top);
+    let best = null, bd = Infinity, lh = 12;
+    const list = onPage(shown);
+    for (const [i, l] of list) {
+      if (l.length < 5) continue;
+      const dx = x < l[1] ? l[1] - x : x > l[3] ? x - l[3] : 0, dy = y > l[2] ? y - l[2] : y < l[4] ? l[4] - y : 0;
+      if (dx * 2 + dy < bd) { bd = dx * 2 + dy; best = i; lh = l[2] - l[4]; }
+    }
+    if (best == null && list.length) best = list[0][0], bd = 0; // the page's words were read as a whole, without line positions
+    if (best == null || bd > lh * 1.2) { toast('Nothing was read from that spot. If words are missing, tap Fix text on the paragraph and add them.', 5000); return; }
+    setFollow(true); seek(best, true);
+  });
+  let rz = null;
+  addEventListener('resize', () => { if (!on) return; clearTimeout(rz); rz = setTimeout(() => { layout(); show(shown || pageOf(idx)); }, 200); });
+  return {
+    sync, adopt,
+    extended() { byPage = null; },
+    covered() { return on && root.classList.contains('split') && scroller.closest('.pageview').getBoundingClientRect().bottom < innerHeight * 0.7 ? scroller.closest('.pageview').getBoundingClientRect().bottom : 0; },
+    bookChanged() {
+      byPage = null; shown = 0; vp = null; marks.textContent = '';
+      if (doc && docKey !== book?.key) { try { doc.destroy(); } catch {} doc = null; docKey = null; }
+      $('#pageBtn').hidden = !isPDF();
+      if (isPDF() && (on || store.get('pageView', false))) toggle(true); else if (on) { on = false; root.classList.remove('split'); $('#pageBtn').setAttribute('aria-pressed', 'false'); }
+    }
+  };
+})();
+
+/* ---------------- Fixing a paragraph by hand ---------------- */
+// For words a scan lost or misread: edit the paragraph being read. The fix is saved with the book.
+async function fixText() {
+  const s = sentences[idx], p = s?.para; if (!p) return;
+  if (book.open) { toast('You can fix text once the whole book has been read in', 3500); return; }
+  const saved = await Library.get(book.key);
+  const raw = saved?.sections[p.ri]?.paras[p.rj];
+  if (raw == null) { toast('Only books in your library can be fixed'); return; }
+  const dlg = $('#fixDlg'), ta = $('#fixText');
+  $('#fixHead').textContent = p.fig ? 'FIX THIS ILLUSTRATION’S TITLE' : 'FIX THIS PARAGRAPH';
+  $('#fixTip').textContent = p.fig ? 'One line per line of the title or caption. It’s read as “Illustration: …”.' : 'Type in anything the reader left out or got wrong. It reads your words from now on.';
+  ta.value = p.fig ? (raw.caption || []).join('\n') : typeof raw === 'string' ? raw : raw.text;
+  pause();
+  const done = await new Promise(res => {
+    $('#fixSave').onclick = () => res(true); $('#fixCancel').onclick = () => res(false); dlg.onclose = () => res(false);
+    try { dlg.showModal(); } catch { dlg.setAttribute('open', ''); }
+    ta.focus();
+  });
+  try { dlg.close(); } catch { dlg.removeAttribute('open'); }
+  if (!done) return;
+  const v = ta.value.trim();
+  if (p.fig) raw.caption = v.split('\n').map(t => t.trim()).filter(Boolean);
+  else if (typeof raw === 'string') saved.sections[p.ri].paras[p.rj] = v;
+  else raw.text = v;
+  if (!(await Library.put(saved))) { toast('Couldn’t save the fix on this phone'); return; }
+  loadBook({ title: saved.title, sections: saved.sections }, saved.key, { keepPlace: true });
+  const at = sentences.findIndex(x => x.para.ri === p.ri && x.para.rj === p.rj); // the fixed paragraph may now have more or fewer sentences
+  if (at >= 0) setCurrent(at, true);
+  toast('Fixed. The reader uses your words now.');
+}
+$('#pvFix').addEventListener('click', fixText);
 
 /* ---------------- Speech ---------------- */
 // Inside the iPhone app, src/bridge.js provides a stand-in that speaks with the phone's own voices.
@@ -993,7 +1290,10 @@ function fillDialogSelect() {
   sel.value = [...sel.options].some(o => o.value === dialogMode) ? dialogMode : 'auto';
 }
 function advance() {
-  if (idx >= sentences.length - 1) { pause(); return; }
+  if (idx >= sentences.length - 1) {
+    if (book?.open) { waitingMore = true; toast('Reading in the next page…'); return; } // carries on when it arrives
+    pause(); return;
+  }
   idx++; speakCurrent();
 }
 
@@ -1360,7 +1660,19 @@ function loadScript(src) {
     const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not load the file reader. Check your connection and try again.')); document.head.appendChild(s);
   }));
 }
-function busy(msg) { const l = $('#loading'); if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else l.hidden = true; }
+// While a book is still being read in but already open, progress goes to a quiet line above the player
+// instead of covering the screen.
+let bgImport = false;
+function busy(msg) {
+  const l = $('#loading'), n = $('#importNote');
+  if (bgImport && msg) { n.textContent = msg.replace(/…$/, '') + ' · you can listen while the rest loads'; n.hidden = false; l.hidden = true; return; }
+  if (msg) { $('#loadingMsg').textContent = msg; l.hidden = false; } else { l.hidden = true; n.hidden = true; }
+}
+// Only one book is read in at a time; opening another stops the one in progress (it continues from where it
+// stopped if that file is opened again).
+const ABORT = new Error('stopped');
+let importTok = 0;
+function cancelImport() { importTok++; bgImport = false; $('#importNote').hidden = true; }
 
 /* ---------------- Pictures, and the words inside them ---------------- */
 // Words that are part of a picture (or a whole scanned page) are read with Tesseract, which runs on the phone.
@@ -1395,17 +1707,19 @@ const OCR = (() => {
           const lh = (l.rowAttributes?.row_height || (l.bbox.y1 - l.bbox.y0) * 0.75) * k;
           for (const w of l.words || []) {
             const t = (w.text || '').trim();
-            // Rule lines and specks come out as bars and lone marks.
-            if (!t || w.confidence < 25 || /^[|¦!_\-—–~.,:;'"`*]+$/.test(t)) continue;
+            // Rule lines and specks come out as bars and lone marks. Faint or smudged words on old scans are often
+            // read with low confidence but correctly; keep them when they look like a word.
+            if (!t || /^[|¦!_\-—–~.,:;'"`*]+$/.test(t)) continue;
+            if (w.confidence < 25 && !(w.confidence >= 8 && /[A-Za-z]{2}|\d/.test(t))) continue;
             const b = w.baseline && w.baseline.y0 > 0 ? (w.baseline.y0 + w.baseline.y1) / 2 : w.bbox.y1;
-            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh });
+            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh, conf: w.confidence });
           }
         }
         return out;
       } catch { await this.close(); return null; }
       finally { drop(img); }
     },
-    async read(canvas, limitMs = 15000) {
+    async read(canvas, limitMs = 15000, minConf = 65) {
       if (uses >= 8) await this.close();
       const wk = await worker(); if (!wk) return null;
       uses++;
@@ -1417,7 +1731,7 @@ const OCR = (() => {
         const r = await Promise.race([wk.recognize(img), late]); clearTimeout(timer);
         if (r === 'late') { await this.close(); return null; }
         return (r.data.paragraphs || []).map(p => (p.lines || [])
-          .filter(l => l.confidence >= 65 && /[A-Za-z]{2}/.test(l.text)).map(l => l.text.trim()).join(' ')
+          .filter(l => l.confidence >= minConf && /[A-Za-z]{2}/.test(l.text)).map(l => l.text.trim()).join(' ')
           .replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1$2').trim()).filter(t => t.length > 1);
       } catch { await this.close(); return null; }
       finally { drop(img); }
@@ -1488,13 +1802,69 @@ function imageRects(ops) {
 // the columns from where the words are, so a tilted scan or a rule drawn down the middle doesn't matter.
 async function ocrPageItems(page) {
   const [vx0, vy0, vx1, vy1] = page.view;
-  const [c] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }], 1600);
+  const [c] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }], 2000);
   try {
     const words = await OCR.words(c); if (!words) return null;
     const k = c.width / (vx1 - vx0);
-    const items = words.map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k) }));
-    return { items, chars: items.reduce((n, it) => n + it.str.length, 0) };
+    const pics = findPictures(c, words).map(r => ({ x0: vx0 + r.x0 / k, x1: vx0 + r.x1 / k, y0: vy1 - r.y1 / k, y1: vy1 - r.y0 / k }));
+    // Lettering inside a picture is mostly misread shapes; keep only the words read with confidence (labels).
+    const inPic = w => pics.some(r => { const x = vx0 + (w.x0 + w.x1) / 2 / k, y = vy1 - w.y / k; return x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1; });
+    const items = words.filter(w => !(w.conf < 60 && inPic(w))).map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k) }));
+    return { items, pics, chars: items.reduce((n, it) => n + it.str.length, 0) };
   } finally { drop(c); }
+}
+// A scanned page is one big picture, so its illustrations aren't marked anywhere. Find them as patches of ink
+// where no words were read: the page is cut into small cells, cells with ink but no confident words are joined
+// into areas, and areas big enough to be a picture (not a rule, a speck or the shadow at the page edge) are kept.
+// Positions are in canvas pixels, y downwards.
+function findPictures(c, words) {
+  const G = 8, cols = Math.ceil(c.width / G), rows = Math.ceil(c.height / G), n = cols * rows;
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const lum = new Uint8Array(c.width * c.height), hist = new Uint32Array(256);
+  for (let i = 0; i < lum.length; i++) { const v = (d[i * 4] * 3 + d[i * 4 + 1] * 6 + d[i * 4 + 2]) / 10 | 0; lum[i] = v; hist[v]++; }
+  let acc = 0, med = 0; for (; med < 255 && acc < lum.length / 2; med++) acc += hist[med];
+  const dark = med * 0.6, ink = new Float32Array(n), text = new Uint8Array(n);
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (lum[y * c.width + x] < dark) ink[(y / G | 0) * cols + (x / G | 0)]++;
+  for (let i = 0; i < n; i++) ink[i] /= G * G;
+  for (const w of words) {
+    if (w.conf < 40) continue;
+    const ca = Math.max(0, (w.x0 - w.h * 0.3) / G | 0), cb = Math.min(cols - 1, (w.x1 + w.h * 0.3) / G | 0);
+    const ra = Math.max(0, (w.y - w.h * 1.05) / G | 0), rb = Math.min(rows - 1, (w.y + w.h * 0.4) / G | 0);
+    for (let r = ra; r <= rb; r++) for (let q = ca; q <= cb; q++) text[r * cols + q] = 1;
+  }
+  const cand = new Uint8Array(n);
+  for (let i = 0; i < n; i++) cand[i] = ink[i] >= 0.03 && !text[i] ? 1 : 0;
+  // Long straight rules (down the middle between the columns, under a running head) would join everything
+  // into one area; leave them out.
+  for (let q = 0; q < cols; q++) for (let r = 0; r < rows;) { let e = r; while (e < rows && cand[e * cols + q]) e++; if (e - r > rows * 0.2) for (let k = r; k < e; k++) cand[k * cols + q] = 2; r = e + 1; }
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols;) { let e = q; while (e < cols && cand[r * cols + e]) e++; if (e - q > cols * 0.3) for (let k = q; k < e; k++) cand[r * cols + k] = 2; q = e + 1; }
+  for (let i = 0; i < n; i++) if (cand[i] === 2) cand[i] = 0;
+  // Join strokes of a line drawing that are a little apart, but never across words, so a picture doesn't
+  // swallow the text around it.
+  const R = 2, grown = new Uint8Array(n);
+  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) if (cand[r * cols + q])
+    for (let a = Math.max(0, r - R); a <= Math.min(rows - 1, r + R); a++) for (let b = Math.max(0, q - R); b <= Math.min(cols - 1, q + R); b++) if (!text[a * cols + b]) grown[a * cols + b] = 1;
+  const seen = new Uint8Array(n), out = [];
+  for (let s0 = 0; s0 < n; s0++) {
+    if (!grown[s0] || seen[s0]) continue;
+    let r0 = rows, r1 = -1, q0 = cols, q1 = -1, cells = 0, inkSum = 0, textCells = 0;
+    const st = [s0]; seen[s0] = 1;
+    while (st.length) {
+      const i = st.pop(), r = i / cols | 0, q = i % cols;
+      if (cand[i]) { r0 = Math.min(r0, r); r1 = Math.max(r1, r); q0 = Math.min(q0, q); q1 = Math.max(q1, q); }
+      for (const j of [q > 0 ? i - 1 : -1, q < cols - 1 ? i + 1 : -1, i - cols, i + cols]) if (j >= 0 && j < n && grown[j] && !seen[j]) { seen[j] = 1; st.push(j); }
+    }
+    if (r1 < 0) continue;
+    for (let r = r0; r <= r1; r++) for (let q = q0; q <= q1; q++) { cells++; inkSum += ink[r * cols + q]; textCells += text[r * cols + q]; }
+    const w = (q1 - q0 + 1) / cols, h = (r1 - r0 + 1) / rows, edge = 2;
+    if (w < 0.18 || h < 0.07 || w * h < 0.03) continue; // rules, specks, single letters
+    if (q0 < edge || r0 < edge || q1 > cols - 1 - edge || r1 > rows - 1 - edge) continue; // page-edge shadow and scanner borders
+    const fill = inkSum / cells;
+    if (fill < 0.02 || fill > 0.8 || textCells / cells > 0.25) continue; // blank, solid shadow, or really a block of text
+    // (padded a little, since a frame's straight edges were left out above)
+    out.push({ x0: Math.max(0, (q0 - 1) * G), y0: Math.max(0, (r0 - 1) * G), x1: Math.min(c.width, (q1 + 2) * G), y1: Math.min(c.height, (r1 + 1) * G) });
+  }
+  return out;
 }
 // Words read off a picture come one by one, so a centred heading ("CHAPTER ONE", a figure caption) has words
 // on both sides of the column split. Those lines run across the split with only a word space at it, where two
@@ -1531,7 +1901,11 @@ function findGutter(items, x0, W) {
     i = j;
   }
   if (!run) return null;
-  const gx = x0 + ((run[0] + run[1]) / 2 + 0.5) / bins * W;
+  // The run of sparse strips includes the ragged ends of the left column's lines, so its middle sits left of
+  // the real gap. Use the middle of its emptiest stretch (only a heading or two crossing it) instead.
+  const few = Math.max(2, lim * 0.15); let best = null;
+  for (let i = run[0]; i <= run[1]; i++) { if (cov[i] > few) continue; let j = i; while (j + 1 <= run[1] && cov[j + 1] <= few) j++; if (!best || j - i > best[1] - best[0]) best = [i, j]; i = j; }
+  const r = best || run, gx = x0 + ((r[0] + r[1]) / 2 + 0.5) / bins * W;
   const left = items.filter(it => it.x1 <= gx).length, right = items.filter(it => it.x0 >= gx).length;
   return left >= items.length * 0.2 && right >= items.length * 0.2 ? gx : null;
 }
@@ -1569,17 +1943,43 @@ async function renderCrops(page, rects, width = 1100) {
   drop(c);
   return crops;
 }
+// A box on a PDF page in whole page units: left, top, right, bottom (y counts up from the bottom of the page).
+const box = (x0, top, x1, bottom) => [Math.round(x0), Math.round(top), Math.round(x1), Math.round(bottom)];
+// Centred headings ("Tablet One", "Epic Of Creation And Before") printed across the top of a two-column page.
+// Word by word they'd be split between the columns and read in the wrong place, or glued to a caption on the
+// next page. A row counts when its words run together as one phrase centred on the page (crossing the gap
+// between the columns, on a two-column page) and it's clearly narrower than the page.
+function centredTitles(items, cx, W, mustCross, pageMid) {
+  const out = new Set();
+  for (const l of buildLines(items.slice())) {
+    const ps = l.parts; let gap = 0;
+    for (let i = 1; i < ps.length; i++) gap = Math.max(gap, ps[i].x0 - ps[i - 1].x1);
+    const mid = (l.x0 + l.x1) / 2, w = l.x1 - l.x0;
+    if (gap > l.h * 2.2 || w > W * 0.62 || l.t.length > 70 || Math.min(Math.abs(mid - cx), Math.abs(mid - pageMid)) > W * 0.06 || /^\d{1,4}$/.test(l.t)) continue;
+    if (mustCross ? !(l.x0 < cx && l.x1 > cx) : w > W * 0.5) continue;
+    ps.forEach(it => out.add(it));
+  }
+  return out;
+}
 const CHAPTER_LINE = /^(chapter|book|part)\s+([a-z]+(?:[- ][a-z]+)?|\d+|[ivxlc]+)\.?$/i;
 const VERSE_START = /^\d{1,3}\s+(?=["“'(]?[A-Z])/;
 const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-// Saved progress from an older version of the importer (which mixed the two columns of scanned pages) isn't continued.
-const IMPORT_V = 3;
-async function readPDF(file, key) {
+// Saved progress from an older version of the importer (which mixed the two columns of scanned pages, or didn't
+// note where each line sits on the page) isn't continued.
+const IMPORT_V = 4;
+async function loadPDFJS() {
+  if (window.pdfjsLib) return;
   const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   await loadScript(base + 'pdf.worker.min.js');
   await loadScript(base + 'pdf.min.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+}
+// ctl.onBlocks(blocks, upto, page, total) is called after every page with what's been read so far; blocks
+// before upto are finished (the last paragraph may still run on to the next page). ctl.stopped() says to give up.
+async function readPDF(file, key, ctl = {}) {
+  await loadPDFJS();
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  PageView.adopt(key, pdf); // kept open for the page view
   let blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
   let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0, singleColumnRun = 0;
   // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
@@ -1595,6 +1995,7 @@ async function readPDF(file, key) {
     await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li });
   };
   for (let p = start; p <= pdf.numPages; p++) {
+    if (ctl.stopped?.()) throw ABORT;
     busy('Reading page ' + p + ' of ' + pdf.numPages + '…');
     if (p > start && (p - start) % 20 === 0) { await checkpoint(p); try { await pdf.cleanup(); } catch {} }
     await new Promise(r => setTimeout(r, 0)); // let the phone tidy memory between pages
@@ -1621,17 +2022,17 @@ async function readPDF(file, key) {
       const full = rects.find(r => (r.x1 - r.x0) * (r.y1 - r.y0) > W * H * 0.6);
       // Read the words off the picture; columns are then found from where the words sit.
       const ocr = full ? await ocrPageItems(page) : null;
-      if (ocr && ocr.chars > 160) { items = ocr.items; rects = rects.filter(r => r !== full); }
+      if (ocr && ocr.chars > 160) { items = ocr.items; rects = ocr.pics; }
       else if (full && !ocr) {
         const [canvas] = await renderCrops(page, [{ x0: vx0, y0: vy0, x1: vx1, y1: vy1 }]);
-        const paras = (await OCR.read(canvas, 30000)) || []; drop(canvas);
+        const paras = (await OCR.read(canvas, 30000, 40)) || []; drop(canvas);
         if (paras.join(' ').length > 160) {
           for (const t of paras) {
             const m = CHAPTER_LINE.exec(t);
             if (m && t.length < 40) { const label = titleCase(t); if (label !== chapter) { chapter = label; blocks.push({ chap: label }); } continue; }
             if (/^\d{1,4}$/.test(t)) continue;
             if (lastPara && !/[.!?:"”']$/.test(lastPara.text) && /^[a-z]/.test(t)) lastPara.text += ' ' + t;
-            else blocks.push(lastPara = { text: t, page: p });
+            else blocks.push(lastPara = { text: t, page: p, at: [[p]] }); // only the page is known, not the lines
           }
           continue; // (the page is still cleaned up below)
         }
@@ -1645,20 +2046,21 @@ async function readPDF(file, key) {
     if (gx == null && scanned && textChars && items.length >= 6 && singleColumnRun < 12) {
       busy('Reading the words on page ' + p + ' of ' + pdf.numPages + '…');
       const ocr = await ocrPageItems(page), g = ocr && ocr.chars > 160 ? findGutter(ocr.items, vx0, W) : null;
-      if (g != null) { items = ocr.items; gx = g; rects = []; singleColumnRun = 0; } else singleColumnRun++;
+      if (g != null) { items = ocr.items; gx = g; rects = ocr.pics; singleColumnRun = 0; } else singleColumnRun++;
     }
     const colOf = (x0, x1) => gx == null ? 0 : x1 <= gx + 4 ? 0 : x0 >= gx - 4 ? 1 : -1;
-    const wide = gx == null ? new Set() : spanning(items, gx);
-    const byCol = { '-1': [], 0: [], 1: [] };
-    for (const it of items) byCol[wide.has(it) ? -1 : colOf(it.x0, it.x1)].push(it);
-    const L = { full: buildLines(byCol['-1']), c0: buildLines(byCol[0]), c1: buildLines(byCol[1]) };
+    const titles = centredTitles(items, gx ?? vx0 + W / 2, W, gx != null, vx0 + W / 2);
+    const wide = gx == null ? new Set() : spanning(items.filter(it => !titles.has(it)), gx);
+    const byCol = { '-1': [], 0: [], 1: [], t: [] };
+    for (const it of items) byCol[titles.has(it) ? 't' : wide.has(it) ? -1 : colOf(it.x0, it.x1)].push(it);
+    const L = { full: [...buildLines(byCol['-1']), ...buildLines(byCol.t).map(l => Object.assign(l, { title: true }))].sort((a, b) => b.y - a.y), c0: buildLines(byCol[0]), c1: buildLines(byCol[1]) };
     // Running heads printed across the top of both columns on the same line ("El Istakhlaag ... The Creation",
     // "Tablet 1:19 ... Tablet 1:33") are read once, before the columns, not glued onto the verses.
     const heads = [];
     const colW = ls => Math.max(1, ...ls.map(l => l.x1 - l.x0)), w0 = colW(L.c0), w1 = colW(L.c1);
     const short = (l, w) => l.t.length < 32 && l.x1 - l.x0 < w * 0.6;
     while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= Math.max(2, L.c0[0].h) && short(L.c0[0], w0) && short(L.c1[0], w1)) {
-      const a = L.c0.shift(), b = L.c1.shift(); heads.push({ ...a, t: a.t + ' — ' + b.t, head: true });
+      const a = L.c0.shift(), b = L.c1.shift(); heads.push({ ...a, x1: b.x1, t: a.t + ' — ' + b.t, head: true });
     }
 
     // Pictures: crop them from the rendered page, take the caption printed under them and any words drawn on them.
@@ -1666,9 +2068,9 @@ async function readPDF(file, key) {
     if (rects.length) {
       const crops = await renderCrops(page, rects);
       for (let i = 0; i < rects.length; i++) {
-        const r = rects[i], col = colOf(r.x0, r.x1), stream = col < 0 ? L.full : col === 0 ? L.c0 : L.c1;
+        const r = rects[i], col = gx == null ? 0 : r.x1 - r.x0 > W * 0.6 ? -1 : colOf(r.x0, r.x1) >= 0 ? colOf(r.x0, r.x1) : (r.x0 + r.x1) / 2 < gx ? 0 : 1, stream = col < 0 ? L.full : col === 0 ? L.c0 : L.c1;
         const mid = (r.x0 + r.x1) / 2, rw = r.x1 - r.x0, used = new Set();
-        const inside = [...L.full, ...L.c0, ...L.c1].filter(l => l.y <= r.y1 && l.y >= r.y0 && l.x0 >= r.x0 - 4 && l.x1 <= r.x1 + 4);
+        const inside = [...L.full, ...L.c0, ...L.c1].filter(l => l.y <= r.y1 && l.y - l.h * 0.3 >= r.y0 && l.x0 >= r.x0 - 4 && l.x1 <= r.x1 + 4);
         inside.forEach(l => used.add(l));
         const below = [...L.full, ...stream].filter(l => !used.has(l) && l.y < r.y0).sort((a, b) => b.y - a.y);
         const caption = []; let lastY = r.y0;
@@ -1680,15 +2082,16 @@ async function readPDF(file, key) {
         let words = inside.map(l => l.t);
         if (words.join(' ').length < 20 && crops[i].width * crops[i].height >= 150 * 150) {
           busy('Reading the words in illustration ' + (figN + 1) + ' (page ' + p + ')…');
-          words = (await OCR.read(crops[i])) || words;
+          const read = await OCR.read(crops[i]); if (read?.length) words = read;
         }
         const id = key + '#' + (++figN);
         await saveImage(id, await toJPEG(crops[i]));
-        figs.push({ y: r.y1, col, used, block: { fig: id, w: crops[i].width, h: crops[i].height, caption: caption.map(l => l.t), words, page: p } });
+        figs.push({ y: r.y1, col, used, block: { fig: id, w: crops[i].width, h: crops[i].height, caption: caption.map(l => l.t), words, page: p, at: [[p, ...box(r.x0, r.y1, r.x1, r.y0), 0]] } });
         drop(crops[i]);
       }
     }
     const used = new Set(figs.flatMap(f => [...f.used]));
+    function lineBox(l, off) { return [p, ...box(l.x0, l.y + l.h * 0.85, l.x1, l.y - l.h * 0.3), off]; }
     // Reading order: full-width lines above the columns, the left column, the right column, then anything below.
     const entries = col => [...(col === -1 ? L.full : col === 0 ? L.c0 : L.c1).filter(l => !used.has(l)).map(l => ({ y: l.y, line: l })),
       ...figs.filter(f => f.col === col).map(f => ({ y: f.y, fig: f.block }))].sort((a, b) => b.y - a.y);
@@ -1703,32 +2106,45 @@ async function readPDF(file, key) {
         const t = e.line.t;
         if (/^\d{1,4}$/.test(t)) continue; // page numbers
         if (CHAPTER_LINE.test(t) && t.length < 40) { const label = titleCase(t); if (label !== chapter) { chapter = label; blocks.push({ chap: label }); lastPara = null; } cur = null; prevY = null; continue; }
-        if (e.line.head) { blocks.push({ text: t, page: p }); cur = null; prevY = null; continue; } // a running head never swallows the next verse
+        if (e.line.head) { blocks.push({ text: t, page: p, at: [lineBox(e.line, 0)] }); cur = null; prevY = null; continue; } // a running head never swallows the next verse
+        // A centred heading or title is a paragraph of its own: it doesn't run on into the verse after it, and
+        // nothing from the end of the last page is carried into it.
+        if (e.line.title) { blocks.push({ text: t, page: p, at: [lineBox(e.line, 0)], title: true }); cur = null; prevY = null; lastPara = null; continue; }
         const breakHere = !cur || (med && prevY - e.y > med * 1.5) || VERSE_START.test(t);
         if (!cur && lastPara && prevY === null && !VERSE_START.test(t) && !/[.!?:"”']$/.test(lastPara.text)) cur = lastPara; // carried over from the last column or page
-        else if (breakHere) { cur = { text: '', page: p }; blocks.push(cur); }
+        else if (breakHere) { cur = { text: '', page: p, at: [] }; blocks.push(cur); }
+        // Where each printed line sits on the page, and where its words start in the paragraph, so the page view
+        // can light up the lines being read.
+        const off = !cur.text ? 0 : cur.text.endsWith('-') ? cur.text.length - 1 : cur.text.length + 1;
+        (cur.at ||= []).push(lineBox(e.line, off));
         cur.text = !cur.text ? t : cur.text.endsWith('-') ? cur.text.slice(0, -1) + t : cur.text + ' ' + t;
         lastPara = cur; prevY = e.y;
       }
     }
     } finally { page.cleanup(); }
+    if (ctl.onBlocks) { const li = lastPara ? blocks.lastIndexOf(lastPara) : -1; await ctl.onBlocks(blocks, li >= 0 ? li : blocks.length, p, pdf.numPages); }
   }
   await OCR.close();
   await Library.clearImport(key);
-  // Sections: the book's own chapters when it has them, otherwise groups of ten pages.
-  const sections = []; let sec = null;
-  const hasChapters = blocks.some(b => b.chap);
-  for (const b of blocks) {
-    if (b.chap) { sec = { title: b.chap, paras: [] }; sections.push(sec); continue; }
-    if (!hasChapters) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(pdf.numPages, g * 10 + 10), paras: [] }; sections.push(sec); } }
-    if (!sec) { sec = { title: 'Opening Pages', paras: [] }; sections.push(sec); }
-    sec.paras.push(b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words } : b.text);
-  }
-  sections.forEach(s => delete s.g);
-  if (!sections.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
   let title = file.name.replace(/\.pdf$/i, '');
   try { const meta = await pdf.getMetadata(); if (meta?.info?.Title && meta.info.Title.trim().length > 2 && !/^(untitled|microsoft word|document\d*)/i.test(meta.info.Title.trim())) title = meta.info.Title.trim(); } catch {}
-  return { title, sections: sections.filter(s => s.paras.length) };
+  return { title, blocks, total: pdf.numPages };
+}
+// Turns what the PDF reader found into the book's sections and paragraphs, a few at a time as pages are read:
+// the book's own chapters, or groups of ten pages until the first chapter heading turns up.
+function sectioner(total) {
+  let sec = null, seenChap = false, pending = null;
+  return blocks => {
+    const out = [];
+    for (const b of blocks) {
+      if (b.chap) { seenChap = true; pending = b.chap; continue; }
+      let newSec = false;
+      if (pending) { sec = { title: pending }; pending = null; newSec = true; }
+      else if (!seenChap) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(total, g * 10 + 10) }; newSec = true; } }
+      out.push({ newSec, title: sec.title, p: b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words, at: b.at } : b.at ? { text: b.text, at: b.at, ...(b.title && { title: true }) } : b.text });
+    }
+    return out;
+  };
 }
 
 async function readEPUB(file, key) {
@@ -1806,14 +2222,15 @@ function readText(name, text) {
 
 async function openFile(file) {
   if (!file) return;
-  pause();
+  pause(); cancelImport();
+  const my = importTok;
   busy('Opening ' + file.name + '…');
   try {
     const ext = file.name.split('.').pop().toLowerCase();
     let b;
     const key = file.name + ':' + file.size;
     if (ext !== 'pdf') await Library.removeImages(key); // a PDF clears them itself unless it's continuing an import
-    if (ext === 'pdf' || file.type === 'application/pdf') b = await readPDF(file, key);
+    if (ext === 'pdf' || file.type === 'application/pdf') { await openPDF(file, key, my); return; }
     else if (ext === 'epub') b = await readEPUB(file, key);
     else if (ext === 'txt' || ext === 'md' || file.type.startsWith('text/')) b = readText(file.name, await file.text());
     else throw new Error('That file type isn’t supported. Open a PDF, EPUB or plain text file.');
@@ -1822,6 +2239,7 @@ async function openFile(file) {
     const raw = { key, title: b.title, sections: JSON.parse(JSON.stringify(b.sections)), added: Date.now() };
     loadBook(b, key);
     const saved = await Library.put(raw);
+    if (!saved) Library.removeFile(key);
     $('#notice').innerHTML = '';
     const strong = document.createElement('strong'); strong.textContent = b.title;
     $('#notice').append(strong, saved
@@ -1829,12 +2247,51 @@ async function openFile(file) {
       : ' is ready. Press play, or tap a sentence to start from there. This browser wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
     busy(null);
   } catch (err) {
-    busy(null);
+    if (err === ABORT || my !== importTok) return; // another book was opened meanwhile
+    busy(null); bgImport = false;
     $('#notice').innerHTML = '';
     const s = document.createElement('strong'); s.textContent = 'Couldn’t open ' + file.name + '. ';
     $('#notice').append(s, err.message || String(err));
     $('#notice').scrollIntoView({ block: 'center' });
   }
+}
+// A PDF opens as soon as its first pages are read; the rest is read in behind while you listen, and the
+// book is saved to the library once it's all in.
+async function openPDF(file, key, my) {
+  await Library.putFile(key, file);
+  const name = file.name.replace(/\.pdf$/i, ''), raw = [];
+  let toItems = null, taken = 0, shown = false;
+  const stopped = () => my !== importTok;
+  const say = (strong, rest) => { $('#notice').innerHTML = ''; const st = document.createElement('strong'); st.textContent = strong; $('#notice').append(st, rest); };
+  const onBlocks = async (blocks, upto, page, total) => {
+    if (stopped()) throw ABORT;
+    toItems ||= sectioner(total);
+    const items = toItems(blocks.slice(taken, upto)); taken = upto;
+    if (shown) { if (items.length) extendBook(items, false); return; }
+    for (const it of items) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
+    // Open the book once a few pages are in (or straight away when continuing an interrupted import).
+    if (raw.some(s => s.paras.length) && (page >= Math.min(total, 2) || page === total)) {
+      try { loadBook({ title: name, sections: raw }, key, { open: true }); } catch { return; } // nothing readable yet
+      shown = true; bgImport = page < total;
+      say(name, page < total ? ' is open. Press play to start listening; the rest of the book is still being read in and is added as you go.' : '');
+      busy(null); if (bgImport) busy('Reading page ' + page + ' of ' + total);
+    }
+  };
+  const r = await readPDF(file, key, { onBlocks, stopped });
+  if (stopped()) return;
+  const rest = toItems ? toItems(r.blocks.slice(taken)) : [];
+  if (!shown) {
+    for (const it of rest) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
+    if (!raw.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
+    loadBook({ title: r.title, sections: raw }, key);
+  } else extendBook(rest, true);
+  bgImport = false; busy(null);
+  book.title = r.title; $('#bookTitle').textContent = r.title;
+  const saved = await Library.put({ key, title: r.title, sections: JSON.parse(JSON.stringify(raw)), added: Date.now() });
+  if (!saved) Library.removeFile(key);
+  say(r.title, saved
+    ? ' is all read in and saved to your library. It will reopen where you stop.'
+    : ' is all read in. This phone wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
 }
 $('#file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
 addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop'); });
@@ -1869,7 +2326,7 @@ const SAMPLE = { title: 'The Keeper of Gull Point', sections: [
 ] };
 
 const SAMPLE_KEY = 'sample-gull-point';
-function openSample() { pause(); loadBook(JSON.parse(JSON.stringify(SAMPLE)), SAMPLE_KEY); }
+function openSample() { pause(); cancelImport(); loadBook(JSON.parse(JSON.stringify(SAMPLE)), SAMPLE_KEY); }
 
 /* ---------------- Library: books you've opened, kept in this browser ---------------- */
 const Library = (() => {
@@ -1877,12 +2334,13 @@ const Library = (() => {
   function db() {
     if (!dbp) dbp = new Promise((res, rej) => {
       try {
-        const r = indexedDB.open('undertone', 3);
+        const r = indexedDB.open('undertone', 4);
         r.onupgradeneeded = () => {
           const d = r.result;
           if (!d.objectStoreNames.contains('books')) d.createObjectStore('books', { keyPath: 'key' });
           if (!d.objectStoreNames.contains('images')) d.createObjectStore('images', { keyPath: 'id' }); // pictures from books, by "<book key>#<n>"
           if (!d.objectStoreNames.contains('imports')) d.createObjectStore('imports', { keyPath: 'id' }); // progress of long imports
+          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', { keyPath: 'key' }); // the PDF itself, for the page view
         };
         r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
       } catch (e) { rej(e); }
@@ -1894,7 +2352,14 @@ const Library = (() => {
     async put(b) { try { await tx('readwrite', st => st.put(b)); return true; } catch { return false; } },
     async get(k) { try { return await tx('readonly', st => st.get(k)); } catch { return null; } },
     async all() { try { return (await tx('readonly', st => st.getAll())) || []; } catch { return []; } },
-    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} await this.removeImages(k); },
+    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} await this.removeImages(k); await this.removeFile(k); },
+    // The file is kept as it is; if this phone won't store a file that way, as its bytes.
+    async putFile(key, file) {
+      try { await tx('readwrite', st => st.put({ key, blob: file }), 'files'); return true; } catch {}
+      try { const buf = await file.arrayBuffer(); await tx('readwrite', st => st.put({ key, buf, type: file.type }), 'files'); return true; } catch { return false; }
+    },
+    async getFile(key) { try { const r = await tx('readonly', st => st.get(key), 'files'); return r ? (r.blob || new Blob([r.buf], { type: r.type })) : null; } catch { return null; } },
+    async removeFile(key) { try { await tx('readwrite', st => st.delete(key), 'files'); } catch {} },
     async putImage(id, blob) { try { const buf = await blob.arrayBuffer(); await tx('readwrite', st => st.put({ id, buf, type: blob.type }), 'images'); } catch {} },
     async getImage(id) { try { return await tx('readonly', st => st.get(id), 'images'); } catch { return null; } },
     async putImport(meta) { try { await tx('readwrite', st => st.put(meta), 'imports'); } catch {} },
@@ -1939,6 +2404,7 @@ async function renderLibrary() {
 async function openSaved(key) {
   toggleLibrary(false);
   if (book && book.key === key) return;
+  cancelImport();
   if (key === SAMPLE_KEY) { openSample(); return; }
   busy('Opening…');
   const b = await Library.get(key);

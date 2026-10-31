@@ -3,7 +3,7 @@
     "name": "Undertone",
     "slug": "undertone",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -29,7 +29,9 @@
     },
     "backgroundColor": "#0e1115",
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      "expo-secure-store",
+      "expo-status-bar"
     ],
     "runtimeVersion": {
       "policy": "sdkVersion"
