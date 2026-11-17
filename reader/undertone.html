@@ -1844,14 +1844,18 @@ const OCR = (() => {
         const out = [];
         for (const l of r.data.lines || []) {
           const lh = (l.rowAttributes?.row_height || (l.bbox.y1 - l.bbox.y0) * 0.75) * k;
+          // Bold or underlined words (names like MURDUK) are often read right but scored very low. On a line
+          // that has other words read with confidence they're kept: they're part of the line, not specks.
+          const sure = (l.words || []).filter(w => w.confidence >= 60 && /[A-Za-z]{2}/.test(w.text || '')).length;
           for (const w of l.words || []) {
             const t = (w.text || '').trim();
             // Rule lines and specks come out as bars and lone marks. Faint or smudged words on old scans are often
             // read with low confidence but correctly; keep them when they look like a word.
             if (!t || /^[|¦!_\-—–~.,:;'"`*]+$/.test(t)) continue;
-            if (w.confidence < 25 && !(w.confidence >= 8 && /[A-Za-z]{2}|\d/.test(t))) continue;
+            const inLine = (sure >= 1 && /[A-Za-z]{2}|\d/.test(t)) || /^["“'‘(]?[A-Za-z]{3,}[.,;:!?'’"”)]*$/.test(t);
+            if (w.confidence < 25 && !(w.confidence >= 8 && /[A-Za-z]{2}|\d/.test(t)) && !inLine) continue;
             const b = w.baseline && w.baseline.y0 > 0 ? (w.baseline.y0 + w.baseline.y1) / 2 : w.bbox.y1;
-            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh, conf: w.confidence });
+            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh, conf: w.confidence, inLine });
           }
         }
         return out;
@@ -1948,7 +1952,7 @@ async function ocrPageItems(page) {
     const pics = findPictures(c, words).map(r => ({ x0: vx0 + r.x0 / k, x1: vx0 + r.x1 / k, y0: vy1 - r.y1 / k, y1: vy1 - r.y0 / k }));
     // Lettering inside a picture is mostly misread shapes; keep only the words read with confidence (labels).
     const inPic = w => pics.some(r => { const x = vx0 + (w.x0 + w.x1) / 2 / k, y = vy1 - w.y / k; return x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1; });
-    const items = words.filter(w => !(w.conf < 60 && inPic(w))).map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k) }));
+    const items = words.filter(w => !(w.conf < 60 && !w.inLine && inPic(w))).map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k), conf: w.conf }));
     return { items, pics, chars: items.reduce((n, it) => n + it.str.length, 0) };
   } finally { drop(c); }
 }
@@ -1966,7 +1970,7 @@ function findPictures(c, words) {
   for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (lum[y * c.width + x] < dark) ink[(y / G | 0) * cols + (x / G | 0)]++;
   for (let i = 0; i < n; i++) ink[i] /= G * G;
   for (const w of words) {
-    if (w.conf < 40) continue;
+    if (w.conf < 40 && !w.inLine) continue; // a bold word read with a low score is still text, not a picture
     const ca = Math.max(0, (w.x0 - w.h * 0.3) / G | 0), cb = Math.min(cols - 1, (w.x1 + w.h * 0.3) / G | 0);
     const ra = Math.max(0, (w.y - w.h * 1.05) / G | 0), rb = Math.min(rows - 1, (w.y + w.h * 0.4) / G | 0);
     for (let r = ra; r <= rb; r++) for (let q = ca; q <= cb; q++) text[r * cols + q] = 1;
@@ -2053,13 +2057,21 @@ function findGutter(items, x0, W) {
 // line (OCR often reads a word next to the column rule as a line of its own, a little higher or lower) is put
 // back on the line it overlaps most, instead of becoming a line of its own and splitting the verse.
 function buildLines(items) {
-  const byX = items.slice().sort((a, b) => a.x0 - b.x0 || b.y - a.y);
+  // Bold type in some PDFs is the same word printed twice, a hair apart: keep one.
+  const byX = items.slice().sort((a, b) => a.x0 - b.x0 || b.y - a.y).filter((it, i, arr) => {
+    for (let j = i - 1; j >= 0 && arr[j].x0 > it.x0 - it.h; j--) {
+      const o = arr[j];
+      if (o.str === it.str && Math.abs(o.y - it.y) < it.h * 0.3 && Math.abs(o.x1 - it.x1) < it.h * 0.5) return false;
+    }
+    return true;
+  });
   let lines = [];
   for (const it of byX) {
     let best = null, bd = Infinity;
     for (const l of lines) {
       const last = l.parts[l.parts.length - 1], dy = Math.abs(last.y - it.y);
-      if (dy > Math.max(last.h, it.h) * 0.5 || it.x0 < last.x1 - Math.min(last.h, it.h) * 0.5) continue; // words on a line don't overlap
+      const h = Math.min(last.h, it.h);
+      if (dy > Math.max(last.h, it.h) * 0.5 || it.x0 < last.x0 || (it.x0 < last.x1 - h * 0.5 && dy > h * 0.25)) continue; // words on a line don't overlap
       const d = dy + Math.max(0, it.x0 - last.x1) * 0.05; // the same height first; then the nearer one
       if (d < bd) { bd = d; best = l; }
     }
@@ -2121,6 +2133,40 @@ function verseNo(t, lastVn) {
   if (next && /[\p{L}"“'(]/u.test(m[3]) && (m[2] || /[A-Z]/.test(m[3]))) return n;
   return null;
 }
+// Names printed in bold capitals (MURDUK, AKASHA, ILLYUWN) are often read badly from a scan: "MIURDUK",
+// "AKASEA". The same names turn up read clearly elsewhere in the book, so a capitalised word the scan wasn't
+// sure of becomes the clearly-read name it's closest to, when only a letter or two differ.
+function nameBook() {
+  const seen = new Map();
+  const dist = (a, b) => {
+    if (Math.abs(a.length - b.length) > 2) return 99;
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  };
+  const split = t => /^([("“'‘]*)([A-Z][A-Z'’-]{3,})([^A-Za-z]*)$/.exec(t);
+  return {
+    load(list) { for (const [w, n] of list || []) seen.set(w, n); },
+    save() { return [...seen].filter(([, n]) => n >= 2).slice(0, 400); },
+    fix(items) {
+      for (const it of items) { const m = split(it.str); if (m && (it.conf == null || it.conf >= 85)) seen.set(m[2], (seen.get(m[2]) || 0) + 1); }
+      return items.map(it => {
+        const m = it.conf != null && it.conf < 85 && split(it.str); if (!m || (seen.get(m[2]) || 0) >= 2) return it;
+        let best = null, bd = 99, bn = 0;
+        for (const [w, n] of seen) {
+          if (n < 2) continue;
+          const d = dist(m[2], w), lim = w.length >= 7 ? 2 : 1 + (w.length >= 5);
+          if (d <= lim && (d < bd || (d === bd && n > bn))) { best = w; bd = d; bn = n; }
+        }
+        return best ? { ...it, str: m[1] + best + m[3] } : it;
+      });
+    }
+  };
+}
 // A box on a PDF page in whole page units: left, top, right, bottom (y counts up from the bottom of the page).
 const box = (x0, top, x1, bottom) => [Math.round(x0), Math.round(top), Math.round(x1), Math.round(bottom)];
 // Centred headings ("Tablet One", "Epic Of Creation And Before") printed across the top of a two-column page.
@@ -2167,17 +2213,18 @@ async function readPDF(file, key, ctl = {}) {
   // lastVn: the last verse number read, so the next one is recognised even when the scan misreads its first
   // letter. tops: what the tops of the last few pages said, to leave out a running head printed on every page.
   let lastVn = null, tops = [];
+  const names = nameBook(); // names in capitals read clearly, to put right the same names read badly in bold
   // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
   const prior = await Library.getImport(key);
   if (prior && prior.total === pdf.numPages && prior.v === IMPORT_V) {
     blocks = await Library.importBlocks(key, prior.chunks);
     saved = blocks.length; blocks.push(...prior.tail);
-    ({ chapter, figN, chunks } = prior); start = prior.next; lastVn = prior.lastVn ?? null; tops = prior.tops || []; lastPara = prior.lastIdx >= 0 ? blocks[prior.lastIdx] : null;
+    ({ chapter, figN, chunks } = prior); start = prior.next; lastVn = prior.lastVn ?? null; tops = prior.tops || []; names.load(prior.names); lastPara = prior.lastIdx >= 0 ? blocks[prior.lastIdx] : null;
   } else { await Library.clearImport(key); await Library.removeImages(key); }
   const checkpoint = async next => {
     const li = lastPara ? blocks.lastIndexOf(lastPara) : -1, keep = li >= 0 ? li : blocks.length; // the open paragraph may still grow
     if (keep > saved) { await Library.putImportChunk(key, chunks++, blocks.slice(saved, keep)); saved = keep; }
-    await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li, lastVn, tops });
+    await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li, lastVn, tops, names: names.save() });
   };
   for (let p = start; p <= pdf.numPages; p++) {
     if (ctl.stopped?.()) throw ABORT;
@@ -2224,6 +2271,7 @@ async function readPDF(file, key, ctl = {}) {
       }
     }
 
+    items = names.fix(items);
     let gx = findGutter(items, vx0, W);
     // Some scans carry hidden text that runs straight across both columns, so its lines can't tell the columns
     // apart. Read the words from the picture instead and look for the columns there. A book that turns out to
