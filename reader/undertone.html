@@ -296,7 +296,8 @@ html.split { scroll-padding-top: calc(var(--top-h, 56px) + 40vh); }
 .fix-dlg::backdrop { background: rgba(0,0,0,.55); }
 .fix-dlg h3 { margin: 0 0 6px; font-family: var(--f-cap); font-size: .72rem; letter-spacing: .18em; color: var(--muted); }
 .fix-dlg textarea { width: 100%; box-sizing: border-box; min-height: 34vh; font: inherit; font-size: 1.05rem; line-height: 1.45; background: var(--paper); color: var(--fg); border: 1px solid var(--line); border-radius: 3px; padding: 10px; }
-.fix-dlg .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.fix-dlg .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.fix-dlg #fixEarlier { margin-right: auto; }
 
 @media (max-width: 520px) {
   .brand span { display: none; }
@@ -356,7 +357,7 @@ html.split { scroll-padding-top: calc(var(--top-h, 56px) + 40vh); }
   <h3 id="fixHead">FIX THIS PARAGRAPH</h3>
   <p class="tip" id="fixTip">Type in anything the reader left out or got wrong. It reads your words from now on.</p>
   <textarea id="fixText" spellcheck="true"></textarea>
-  <div class="row"><button class="btn" id="fixCancel" type="button">Cancel</button><button class="btn" id="fixSave" type="button">Save</button></div>
+  <div class="row"><button class="btn" id="fixEarlier" type="button" hidden>Use my earlier wording</button><button class="btn" id="fixCancel" type="button">Cancel</button><button class="btn" id="fixSave" type="button">Save</button></div>
 </dialog>
 
 <main id="main">
@@ -581,18 +582,34 @@ function normPara(p, ri, rj) {
     return { ...p, ri, rj, text: clean([cap ? 'Illustration: ' + cap : words ? 'Illustration.' : '', words].join(' ')) };
   }
   const raw = typeof p === 'string' ? p : p.text, at = typeof p === 'string' ? null : p.at || null, title = !!p.title;
-  const t = clean(raw), m = !title && /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
-  return m ? { text: t.slice(m[0].length), vn: +m[1], at, skip: m[0].length, ri, rj } : { text: t, at, skip: 0, ri, rj, title };
+  // The PDF importer says which number opens a verse (it knows the verse that came before, so it can trust a
+  // number even when the scan misread the next letter as lower case); otherwise a number before a capital.
+  const t = clean(raw), given = typeof p === 'object' && p.vn, m = title ? null : given ? new RegExp('^(' + given + ')\\s*').exec(t) : /^(\d{1,3})\s+(?=["“'(]?[A-Z])/.exec(t);
+  const fixed = !!p.fixed;
+  return m ? { text: t.slice(m[0].length), vn: +m[1], at, skip: m[0].length, ri, rj, fixed } : { text: t, at, skip: 0, ri, rj, title, fixed };
 }
 const keepPara = p => p.fig || p.text.length > 1;
+// Books read in before running heads were left out still have them saved as paragraphs of their own. They're
+// left out when the book is opened: one printed line from a PDF, no verse number and no full stop, whose words
+// turn up as a line of their own on several pages ("El Istakhlaag — The Creation"), or a page label ("Tablet 3:6").
+// Nothing you fixed by hand is ever left out.
+const shortLine = p => !p.fig && !p.vn && !p.fixed && p.at && p.at.length === 1 && p.at[0].length > 5 && p.text.length <= 60 && !/[.!?,;:]["”’']?$/.test(p.text);
+function countHeads(paras, n = new Map()) {
+  for (const p of paras) if (shortLine(p)) { const k = headKey(p.text); if (k.length >= 4) n.set(k, (n.get(k) || 0) + 1); }
+  return n;
+}
+const isRunning = (p, heads) => shortLine(p) && (PAGE_LABEL.test(p.text) || (heads.get(headKey(p.text)) || 0) >= 4);
 // opts.open: the book is still being read in, and more pages will be added with extendBook.
 function loadBook(b, key, opts = {}) {
   stopSpeech(); playing = false; setPlayIcon(); waitingMore = false;
   const raw = b.sections;
-  b.sections = raw.map((s, ri) => ({ title: s.title, ri, paras: s.paras.map((p, rj) => normPara(p, ri, rj)).filter(keepPara) })).filter(s => s.paras.length);
+  const norm = raw.map((s, ri) => ({ title: s.title, ri, paras: s.paras.map((p, rj) => normPara(p, ri, rj)) }));
+  const heads = countHeads(norm.flatMap(s => s.paras));
+  b.sections = norm.map(s => ({ ...s, paras: s.paras.filter(p => keepPara(p) && !isRunning(p, heads)) })).filter(s => s.paras.length);
   if (!b.sections.length) throw new Error('No readable text was found in this file.');
+  b.numbered = b.sections.some(s => s.paras.some(p => p.vn));
   analyze(b);
-  book = b; book.key = key || b.title; book.raw = raw; book.open = !!opts.open;
+  book = b; book.key = key || b.title; book.raw = raw; book.open = !!opts.open; book.heads = heads;
   render();
   idx = Math.min(store.get('pos:' + book.key, 0), sentences.length - 1);
   store.set('len:' + book.key, sentences.length); store.set('last', book.key); store.set('seen:' + book.key, Date.now());
@@ -671,7 +688,11 @@ function addParas(si, from) {
     if (sentences.length - rs.cur.from >= BLOCK) newBlock(si);
     if (p.mood !== rs.prevMood) { rs.cur.items.push({ t: 'shift', mood: p.mood }); rs.prevMood = p.mood; }
     if (p.fig) { rs.cur.items.push({ t: 'fig', p }); if (!p.text) continue; }
-    const verse = p.vn || pi + 1, parts = splitSentences(p.text), first = sentences.length;
+    // A book with its own verse numbers: a paragraph without one (a heading, or a verse carried on) shows no
+    // number and is placed under the verse before it. Other books get their paragraphs numbered.
+    if (!book.numbered && p.vn) book.numbered = true;
+    if (p.vn) sec.lastVn = p.vn;
+    const cont = !p.vn && book.numbered, verse = p.vn || (cont ? sec.lastVn || 1 : pi + 1), parts = splitSentences(p.text), first = sentences.length;
     let inQuote = false, pos = 0;
     parts.forEach((t, k) => {
       const r = segment(t, inQuote); inQuote = r.inQuote;
@@ -679,7 +700,7 @@ function addParas(si, from) {
       sentences.push({ text: t, all: r.segs, segs: r.segs.filter(g => /[\p{L}\p{N}]/u.test(g.text)), el: null, b: blocks.length - 1, si, vn: verse, mood: p.mood, cues: p.cues, paraEnd: k === parts.length - 1,
         at: p.at ? linesOf(p, from + (p.skip || 0), pos + (p.skip || 0)) : null, para: p });
     });
-    rs.cur.items.push({ t: 'para', fig: !!p.fig || p.title, mood: p.mood, verse, first, last: sentences.length - 1 });
+    rs.cur.items.push({ t: 'para', fig: !!p.fig || p.title, cont, mood: p.mood, verse, first, last: sentences.length - 1 });
   }
 }
 // The end of a section: a longer breath after its last sentence, and (if it isn't already on the page) its card.
@@ -699,7 +720,7 @@ function extendBook(items, done) {
     if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] });
     const ri = raw.length - 1, rsec = raw[ri];
     rsec.paras.push(it.p);
-    const d = normPara(it.p, ri, rsec.paras.length - 1); if (!keepPara(d)) continue;
+    const d = normPara(it.p, ri, rsec.paras.length - 1); countHeads([d], book.heads); if (!keepPara(d) || isRunning(d, book.heads)) continue;
     let dsec = book.sections[book.sections.length - 1];
     if (!dsec || dsec.ri !== ri) { dsec = { title: rsec.title, ri, paras: [] }; book.sections.push(dsec); }
     if (!fresh.has(book.sections.length - 1)) fresh.set(book.sections.length - 1, dsec.paras.length);
@@ -743,7 +764,7 @@ function buildBlock(bi) {
       const h = document.createElement('h2'); h.textContent = own ? '' : sec.title; h.id = 'sec' + si; h.hidden = own;
       const bar = document.createElement('div'); bar.className = 'tablet-bar';
       const l = document.createElement('span'); l.textContent = 'Tablet ' + (si + 1) + ':1';
-      const lastV = sec.paras.reduce((n, p, i) => p.vn || (p.fig ? n : i + 1), 0) || sec.paras.length;
+      const lastV = sec.paras.reduce((n, p, i) => p.vn || (p.fig || book.numbered ? n : i + 1), 0) || sec.paras.length;
       const r = document.createElement('span'); r.textContent = 'Tablet ' + (si + 1) + ':' + lastV;
       bar.append(l, r); head.append(no, h, bar); el.appendChild(head);
     } else if (it.t === 'shift') {
@@ -757,7 +778,7 @@ function buildBlock(bi) {
     } else if (it.t === 'para') {
       const pe = document.createElement('p'); pe.style.setProperty('--pm', MOODS[it.mood].color);
       if (it.fig) pe.className = 'figtext';
-      else { const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = it.verse; pe.appendChild(vn); }
+      else if (!it.cont) { const vn = document.createElement('b'); vn.className = 'vn'; vn.textContent = it.verse; pe.appendChild(vn); }
       for (let i = it.first; i <= it.last; i++) {
         const s = sentences[i], sp = document.createElement('span'); sp.className = 's'; sp.dataset.i = i;
         if (kept.has(i)) sp.classList.add('kept');
@@ -1080,6 +1101,9 @@ async function fixText() {
   $('#fixHead').textContent = p.fig ? 'FIX THIS ILLUSTRATION’S TITLE' : 'FIX THIS PARAGRAPH';
   $('#fixTip').textContent = p.fig ? 'One line per line of the title or caption. It’s read as “Illustration: …”.' : 'Type in anything the reader left out or got wrong. It reads your words from now on.';
   ta.value = p.fig ? (raw.caption || []).join('\n') : typeof raw === 'string' ? raw : raw.text;
+  // The book was read in again: offer the words this spot had before, in case they were your own fix.
+  const earlier = p.fig ? null : await earlierWording(book.key, raw), eb = $('#fixEarlier');
+  eb.hidden = !earlier; eb.onclick = () => { ta.value = earlier; eb.hidden = true; ta.focus(); };
   pause();
   const done = await new Promise(res => {
     $('#fixSave').onclick = () => res(true); $('#fixCancel').onclick = () => res(false); dlg.onclose = () => res(false);
@@ -1089,16 +1113,131 @@ async function fixText() {
   try { dlg.close(); } catch { dlg.removeAttribute('open'); }
   if (!done) return;
   const v = ta.value.trim();
-  if (p.fig) raw.caption = v.split('\n').map(t => t.trim()).filter(Boolean);
-  else if (typeof raw === 'string') saved.sections[p.ri].paras[p.rj] = v;
-  else raw.text = v;
+  // Every fix is also noted in the book's list of fixes, with the page and the words it replaced, so it can be
+  // put back in its place when the book is read in again (and the paragraphs come out differently).
+  saved.fixes = saved.fixes ?? guessFixes(saved);
+  const before = paraText(raw), page = paraPage(raw);
+  let f = saved.fixes.find(f => !!f.fig === !!p.fig && f.text === before && (f.page == null || page == null || f.page === page));
+  if (!f) { f = { page, fig: !!p.fig, was: raw.was ?? before }; saved.fixes.push(f); }
+  f.text = p.fig ? v.split('\n').map(t => t.trim()).filter(Boolean).join('\n') : v; f.at = Date.now();
+  if (p.fig) raw.caption = f.text.split('\n');
+  else if (typeof raw === 'string') saved.sections[p.ri].paras[p.rj] = { text: v, fixed: true, was: before };
+  else { raw.was ??= before; raw.text = v; raw.fixed = true; }
+  if (p.fig) raw.fixed = true;
   if (!(await Library.put(saved))) { toast('Couldn’t save the fix on this phone'); return; }
+  store.set('fixes:' + saved.key, saved.fixes); // a second copy, in case the book itself is ever replaced
   loadBook({ title: saved.title, sections: saved.sections }, saved.key, { keepPlace: true });
   const at = sentences.findIndex(x => x.para.ri === p.ri && x.para.rj === p.rj); // the fixed paragraph may now have more or fewer sentences
   if (at >= 0) setCurrent(at, true);
   toast('Fixed. The reader uses your words now.');
 }
 $('#pvFix').addEventListener('click', fixText);
+
+// Fixes and reading a book in again. The words of a paragraph, its page, and how alike two paragraphs are.
+const paraText = r => r == null ? '' : typeof r === 'string' ? r : r.fig ? (r.caption || []).join('\n') : r.text;
+const paraPage = r => r && typeof r === 'object' ? r.page ?? r.at?.[0]?.[0] ?? null : null;
+const wordsOf = t => (clean(String(t || '')).toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+const flat = t => wordsOf(t).join(' ');
+function alike(a, b) { // shared words over the longer of the two
+  const A = wordsOf(a), B = new Map(); for (const w of wordsOf(b)) B.set(w, (B.get(w) || 0) + 1);
+  let n = 0; for (const w of A) if (B.get(w)) { n++; B.set(w, B.get(w) - 1); }
+  return n / Math.max(1, A.length, wordsOf(b).length);
+}
+function within(a, b) { // how much of a is in b
+  const A = wordsOf(a), B = new Map(); for (const w of wordsOf(b)) B.set(w, (B.get(w) || 0) + 1);
+  let n = 0; for (const w of A) if (B.get(w)) { n++; B.set(w, B.get(w) - 1); }
+  return n / Math.max(1, A.length);
+}
+// Books fixed before fixes were listed: find the paragraphs that were edited by hand. When a paragraph is read
+// in, each printed line starts at a known place in its text, just after a space; a paragraph whose lines no
+// longer line up with its text, or that's much longer or shorter than its lines, was changed.
+function guessFixes(saved) {
+  const paras = (saved?.sections || []).flatMap(sec => sec.paras).filter(r => r && typeof r === 'object' && !r.fig && !r.title && r.at?.length && r.at[0].length >= 6);
+  const width = l => Math.max(1, l[3] - l[1]), letter = c => /\p{L}/u.test(c || '');
+  // Letters per unit of line width in this book, from paragraphs of several lines.
+  const rates = paras.filter(r => r.at.length > 2).map(r => r.at[r.at.length - 1][5] / r.at.slice(0, -1).reduce((n, l) => n + width(l), 0)).sort((a, b) => a - b);
+  const rate = rates.length ? rates[rates.length >> 1] : 0;
+  const out = [];
+  for (const r of paras) {
+    if (r.fixed) { out.push({ page: paraPage(r), was: r.was ?? null, text: r.text }); continue; }
+    const t = r.text, offs = r.at.map(l => l[5]);
+    let n = 0, spaces = 0, bad = 0;
+    for (let i = 1; i < offs.length; i++) {
+      n++; const o = offs[i];
+      if (o <= offs[i - 1] || o > t.length) { bad++; continue; }
+      if (t[o - 1] === ' ') spaces++; else if (!(letter(t[o - 1]) && (letter(t[o]) || /[\d"“'(]/.test(t[o])))) bad++; // a word broken at the line end runs on with no space
+    }
+    const last = r.at[r.at.length - 1], expect = offs[offs.length - 1] + rate * width(last);
+    const tooFar = rate > 0 && Math.abs(t.length - expect) > Math.max(16, rate * width(last) * 0.6);
+    if (bad || (n >= 2 && spaces / n < 0.5) || tooFar) out.push({ page: paraPage(r), was: null, text: t, guessed: true });
+  }
+  return out;
+}
+// Puts fixes back into a book being read in again. A fix goes on the paragraph that has exactly the words it
+// replaced, or else the one on its page (or the next) most like it. A paragraph that only holds words the fix
+// already has (the fix joined two lines the reader had split) is left out, so nothing is read twice.
+function fixer(fixes) {
+  const left = (fixes || []).map(f => ({ f, used: false, flatText: flat(f.text) }));
+  const near = (f, page) => f.page == null || page == null || (page >= f.page && page <= f.page + 1);
+  const fix = r => {
+    if (!left.length || r == null) return r;
+    const isFig = typeof r === 'object' && !!r.fig, t = paraText(r), page = paraPage(r), ft = flat(t);
+    if (!ft) return r;
+    let hit = left.find(x => !x.used && !!x.f.fig === isFig && x.f.was != null && flat(x.f.was) === ft && near(x.f, page));
+    if (!hit && !isFig && ft.split(' ').length >= 3) {
+      let best = 0;
+      for (const x of left) {
+        if (x.f.fig || !near(x.f, page)) continue;
+        if (x.used) { if (ft.length >= 12 && x.flatText.includes(ft)) return null; continue; }
+        // Like the words it replaced, like the fix, or mostly inside the fix (the fix added what was missing).
+        const sc = Math.max(x.f.was != null ? alike(t, x.f.was) : 0, alike(t, x.f.text), ft.split(' ').length >= 5 ? within(t, x.f.text) * 0.95 : 0);
+        if (sc >= 0.6 && sc > best) { best = sc; hit = x; }
+      }
+    }
+    if (!hit) return r;
+    hit.used = true; hit.f.was = t; hit.f.page = page ?? hit.f.page; // matched exactly from now on
+    if (isFig) return { ...r, caption: hit.f.text.split('\n'), fixed: true };
+    if (typeof r === 'string') return { text: hit.f.text, fixed: true, was: t };
+    const { vn, ...rest } = r; // the fixed words carry their own verse number
+    return { ...rest, text: hit.f.text, fixed: true, was: t };
+  };
+  // Runs the fixes over items from sectioner(), keeping a new section's start when its first paragraph is left out.
+  fix.items = items => {
+    const out = []; let carry = null;
+    for (const it of items) {
+      const p = fix(it.p);
+      if (p == null) { if (it.newSec) carry = it; continue; }
+      out.push(carry ? { ...it, newSec: true, title: carry.title, p } : { ...it, p }); carry = null;
+    }
+    return out;
+  };
+  fix.missed = () => left.filter(x => !x.used).length;
+  fix.list = () => left.map(x => x.f);
+  return fix;
+}
+// What a paragraph said in the version of the book from before it was last read in again, if that was different.
+async function earlierWording(key, raw) {
+  const prev = await Library.getBefore(key); if (!prev) return null;
+  const t = paraText(raw), page = paraPage(raw); let best = null, bs = 0.45;
+  for (const sec of prev.sections) for (const r of sec.paras) {
+    if (!r || (typeof r === 'object' && r.fig)) continue;
+    const pg = paraPage(r); if (page != null && pg != null && Math.abs(pg - page) > 1) continue;
+    const o = paraText(r); if (flat(o) === flat(t)) return null; // unchanged
+    const sc = alike(t, o); if (sc > bs) { bs = sc; best = o; }
+  }
+  return best;
+}
+// The fixes saved with a book (or the copy kept beside it), and the ones guessed from a book fixed earlier.
+// A book fixed before fixes were listed also has its current version kept, so a fix too small to spot can still
+// be brought back from the Fix text box ("Use my earlier wording").
+async function fixesFor(key) {
+  const saved = await Library.get(key);
+  const listed = saved?.fixes ?? store.get('fixes:' + key, null);
+  if (listed) return listed;
+  if (!saved) return [];
+  await Library.putBefore(key, saved.sections);
+  const g = guessFixes(saved); g.legacy = true; return g;
+}
 
 /* ---------------- Speech ---------------- */
 // Inside the iPhone app, src/bridge.js provides a stand-in that speaks with the phone's own voices.
@@ -1705,14 +1844,18 @@ const OCR = (() => {
         const out = [];
         for (const l of r.data.lines || []) {
           const lh = (l.rowAttributes?.row_height || (l.bbox.y1 - l.bbox.y0) * 0.75) * k;
+          // Bold or underlined words (names like MURDUK) are often read right but scored very low. On a line
+          // that has other words read with confidence they're kept: they're part of the line, not specks.
+          const sure = (l.words || []).filter(w => w.confidence >= 60 && /[A-Za-z]{2}/.test(w.text || '')).length;
           for (const w of l.words || []) {
             const t = (w.text || '').trim();
             // Rule lines and specks come out as bars and lone marks. Faint or smudged words on old scans are often
             // read with low confidence but correctly; keep them when they look like a word.
             if (!t || /^[|¦!_\-—–~.,:;'"`*]+$/.test(t)) continue;
-            if (w.confidence < 25 && !(w.confidence >= 8 && /[A-Za-z]{2}|\d/.test(t))) continue;
+            const inLine = (sure >= 1 && /[A-Za-z]{2}|\d/.test(t)) || /^["“'‘(]?[A-Za-z]{3,}[.,;:!?'’"”)]*$/.test(t);
+            if (w.confidence < 25 && !(w.confidence >= 8 && /[A-Za-z]{2}|\d/.test(t)) && !inLine) continue;
             const b = w.baseline && w.baseline.y0 > 0 ? (w.baseline.y0 + w.baseline.y1) / 2 : w.bbox.y1;
-            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh, conf: w.confidence });
+            out.push({ t, x0: w.bbox.x0 * k, x1: w.bbox.x1 * k, y: b * k, h: lh, conf: w.confidence, inLine });
           }
         }
         return out;
@@ -1809,7 +1952,7 @@ async function ocrPageItems(page) {
     const pics = findPictures(c, words).map(r => ({ x0: vx0 + r.x0 / k, x1: vx0 + r.x1 / k, y0: vy1 - r.y1 / k, y1: vy1 - r.y0 / k }));
     // Lettering inside a picture is mostly misread shapes; keep only the words read with confidence (labels).
     const inPic = w => pics.some(r => { const x = vx0 + (w.x0 + w.x1) / 2 / k, y = vy1 - w.y / k; return x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1; });
-    const items = words.filter(w => !(w.conf < 60 && inPic(w))).map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k) }));
+    const items = words.filter(w => !(w.conf < 60 && !w.inLine && inPic(w))).map(w => ({ str: w.t, x0: vx0 + w.x0 / k, x1: vx0 + w.x1 / k, y: vy1 - w.y / k, h: Math.max(4, w.h / k), conf: w.conf }));
     return { items, pics, chars: items.reduce((n, it) => n + it.str.length, 0) };
   } finally { drop(c); }
 }
@@ -1827,7 +1970,7 @@ function findPictures(c, words) {
   for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (lum[y * c.width + x] < dark) ink[(y / G | 0) * cols + (x / G | 0)]++;
   for (let i = 0; i < n; i++) ink[i] /= G * G;
   for (const w of words) {
-    if (w.conf < 40) continue;
+    if (w.conf < 40 && !w.inLine) continue; // a bold word read with a low score is still text, not a picture
     const ca = Math.max(0, (w.x0 - w.h * 0.3) / G | 0), cb = Math.min(cols - 1, (w.x1 + w.h * 0.3) / G | 0);
     const ra = Math.max(0, (w.y - w.h * 1.05) / G | 0), rb = Math.min(rows - 1, (w.y + w.h * 0.4) / G | 0);
     for (let r = ra; r <= rb; r++) for (let q = ca; q <= cb; q++) text[r * cols + q] = 1;
@@ -1909,16 +2052,54 @@ function findGutter(items, x0, W) {
   const left = items.filter(it => it.x1 <= gx).length, right = items.filter(it => it.x0 >= gx).length;
   return left >= items.length * 0.2 && right >= items.length * 0.2 ? gx : null;
 }
+// Words into printed lines. Words are followed left to right, each joining the line whose last word sits at
+// the same height, so a slightly tilted scan still gives whole lines. A word or two left over at the end of a
+// line (OCR often reads a word next to the column rule as a line of its own, a little higher or lower) is put
+// back on the line it overlaps most, instead of becoming a line of its own and splitting the verse.
 function buildLines(items) {
-  items.sort((a, b) => b.y - a.y || a.x0 - b.x0);
-  const lines = [];
-  for (const it of items) {
-    let l = lines.find(l => Math.abs(l.y - it.y) <= Math.max(l.h, it.h) * 0.5);
-    if (!l) { l = { y: it.y, h: it.h, parts: [] }; lines.push(l); }
-    l.parts.push(it);
+  // Bold type in some PDFs is the same word printed twice, a hair apart: keep one.
+  const byX = items.slice().sort((a, b) => a.x0 - b.x0 || b.y - a.y).filter((it, i, arr) => {
+    for (let j = i - 1; j >= 0 && arr[j].x0 > it.x0 - it.h; j--) {
+      const o = arr[j];
+      if (o.str === it.str && Math.abs(o.y - it.y) < it.h * 0.3 && Math.abs(o.x1 - it.x1) < it.h * 0.5) return false;
+    }
+    return true;
+  });
+  let lines = [];
+  for (const it of byX) {
+    let best = null, bd = Infinity;
+    for (const l of lines) {
+      const last = l.parts[l.parts.length - 1], dy = Math.abs(last.y - it.y);
+      const h = Math.min(last.h, it.h);
+      if (dy > Math.max(last.h, it.h) * 0.5 || it.x0 < last.x0 || (it.x0 < last.x1 - h * 0.5 && dy > h * 0.25)) continue; // words on a line don't overlap
+      const d = dy + Math.max(0, it.x0 - last.x1) * 0.05; // the same height first; then the nearer one
+      if (d < bd) { bd = d; best = l; }
+    }
+    if (!best) { best = { parts: [] }; lines.push(best); }
+    best.parts.push(it);
+  }
+  const span = l => { const ys = l.parts.map(p => p.y), h = Math.max(...l.parts.map(p => p.h)); return { lo: Math.min(...ys) - h * 0.25, hi: Math.max(...ys) + h * 0.75, h }; };
+  const ov = (a, b) => Math.max(0, Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo)) / Math.max(1, Math.min(a.hi - a.lo, b.hi - b.lo));
+  for (let pass = 0; pass < 2; pass++) {
+    for (const l of lines.slice()) {
+      if (l.parts.length > 2 || !lines.includes(l)) continue;
+      const a = span(l), x0 = l.parts[0].x0, x1 = l.parts[l.parts.length - 1].x1;
+      let best = null, bo = 0.4;
+      for (const m of lines) {
+        if (m === l || m.parts.length < l.parts.length) continue;
+        const mx0 = m.parts[0].x0, mx1 = Math.max(...m.parts.map(p => p.x1)), b = span(m);
+        const gap = x0 >= mx1 - 2 ? x0 - mx1 : x1 <= mx0 + 2 ? mx0 - x1 : -1; // beside it, not under it
+        if (gap < 0 || gap > Math.max(a.h, b.h) * 3) continue;
+        const o = ov(a, b); if (o > bo) { bo = o; best = m; }
+      }
+      if (best) { best.parts.push(...l.parts); lines = lines.filter(x => x !== l); }
+    }
   }
   for (const l of lines) {
     l.parts.sort((a, b) => a.x0 - b.x0);
+    // The line's height is where most of its words sit (a stray word above or below doesn't move it).
+    const ys = l.parts.map(p => p.y).sort((a, b) => a - b);
+    l.y = ys[Math.floor(ys.length / 2)]; l.h = Math.max(...l.parts.map(p => p.h));
     let t = '', prev = null;
     for (const p of l.parts) {
       if (prev && !/\s$/.test(t) && !/^\s/.test(p.str) && p.x0 - prev.x1 > l.h * 0.12) t += ' ';
@@ -1926,7 +2107,7 @@ function buildLines(items) {
     }
     l.t = t.replace(/\s+/g, ' ').trim(); l.x0 = l.parts[0].x0; l.x1 = Math.max(...l.parts.map(p => p.x1));
   }
-  return lines.filter(l => l.t).sort((a, b) => b.y - a.y);
+  return lines.filter(l => l.t).sort((a, b) => b.y - a.y || a.x0 - b.x0);
 }
 async function renderCrops(page, rects, width = 1100) {
   const vp1 = page.getViewport({ scale: 1 }), scale = Math.min(width / 500, width / vp1.width), vp = page.getViewport({ scale });
@@ -1942,6 +2123,49 @@ async function renderCrops(page, rects, width = 1100) {
   });
   drop(c);
   return crops;
+}
+// The verse number a printed line opens with, if it opens a verse: a number before a capital letter, or the
+// next number after the last verse even when the scan read its first letter wrongly ("7 in more than…").
+function verseNo(t, lastVn) {
+  const m = /^(\d{1,3})(\s*)(\S)/.exec(t); if (!m) return null;
+  const n = +m[1], next = lastVn != null && n > lastVn && n <= lastVn + 2;
+  if (m[2] && /["“'(]?[A-Z]/.test(t.slice(m[1].length + m[2].length, m[1].length + m[2].length + 2))) return n;
+  if (next && /[\p{L}"“'(]/u.test(m[3]) && (m[2] || /[A-Z]/.test(m[3]))) return n;
+  return null;
+}
+// Names printed in bold capitals (MURDUK, AKASHA, ILLYUWN) are often read badly from a scan: "MIURDUK",
+// "AKASEA". The same names turn up read clearly elsewhere in the book, so a capitalised word the scan wasn't
+// sure of becomes the clearly-read name it's closest to, when only a letter or two differ.
+function nameBook() {
+  const seen = new Map();
+  const dist = (a, b) => {
+    if (Math.abs(a.length - b.length) > 2) return 99;
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  };
+  const split = t => /^([("“'‘]*)([A-Z][A-Z'’-]{3,})([^A-Za-z]*)$/.exec(t);
+  return {
+    load(list) { for (const [w, n] of list || []) seen.set(w, n); },
+    save() { return [...seen].filter(([, n]) => n >= 2).slice(0, 400); },
+    fix(items) {
+      for (const it of items) { const m = split(it.str); if (m && (it.conf == null || it.conf >= 85)) seen.set(m[2], (seen.get(m[2]) || 0) + 1); }
+      return items.map(it => {
+        const m = it.conf != null && it.conf < 85 && split(it.str); if (!m || (seen.get(m[2]) || 0) >= 2) return it;
+        let best = null, bd = 99, bn = 0;
+        for (const [w, n] of seen) {
+          if (n < 2) continue;
+          const d = dist(m[2], w), lim = w.length >= 7 ? 2 : 1 + (w.length >= 5);
+          if (d <= lim && (d < bd || (d === bd && n > bn))) { best = w; bd = d; bn = n; }
+        }
+        return best ? { ...it, str: m[1] + best + m[3] } : it;
+      });
+    }
+  };
 }
 // A box on a PDF page in whole page units: left, top, right, bottom (y counts up from the bottom of the page).
 const box = (x0, top, x1, bottom) => [Math.round(x0), Math.round(top), Math.round(x1), Math.round(bottom)];
@@ -1963,10 +2187,14 @@ function centredTitles(items, cx, W, mustCross, pageMid) {
 }
 const CHAPTER_LINE = /^(chapter|book|part)\s+([a-z]+(?:[- ][a-z]+)?|\d+|[ivxlc]+)\.?$/i;
 const VERSE_START = /^\d{1,3}\s+(?=["“'(]?[A-Z])/;
+// Labels printed on every page that aren't part of the story: "Tablet 3:6", "Tablet 3:6 — Tablet 4:6".
+const PAGE_LABEL = /^(?:(?:tablet|chapter|book|part|verse|page|surah|psalm)s?\.?\s*\d{1,4}\s*[:;.,]\s*\d{1,4}[\s—–-]*)+$/i;
+// A running head or title compared from page to page: letters only, so a page or verse number in it doesn't matter.
+const headKey = t => t.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 const titleCase = s => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 // Saved progress from an older version of the importer (which mixed the two columns of scanned pages, or didn't
 // note where each line sits on the page) isn't continued.
-const IMPORT_V = 4;
+const IMPORT_V = 5;
 async function loadPDFJS() {
   if (window.pdfjsLib) return;
   const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -1982,17 +2210,21 @@ async function readPDF(file, key, ctl = {}) {
   PageView.adopt(key, pdf); // kept open for the page view
   let blocks = []; // in reading order: { chap } | { text, page } | { fig, page }
   let chapter = null, figN = 0, lastPara = null, start = 1, chunks = 0, saved = 0, singleColumnRun = 0;
+  // lastVn: the last verse number read, so the next one is recognised even when the scan misreads its first
+  // letter. tops: what the tops of the last few pages said, to leave out a running head printed on every page.
+  let lastVn = null, tops = [];
+  const names = nameBook(); // names in capitals read clearly, to put right the same names read badly in bold
   // A long book is saved as it's read. If the import is interrupted, opening the same file continues from there.
   const prior = await Library.getImport(key);
   if (prior && prior.total === pdf.numPages && prior.v === IMPORT_V) {
     blocks = await Library.importBlocks(key, prior.chunks);
     saved = blocks.length; blocks.push(...prior.tail);
-    ({ chapter, figN, chunks } = prior); start = prior.next; lastPara = prior.lastIdx >= 0 ? blocks[prior.lastIdx] : null;
+    ({ chapter, figN, chunks } = prior); start = prior.next; lastVn = prior.lastVn ?? null; tops = prior.tops || []; names.load(prior.names); lastPara = prior.lastIdx >= 0 ? blocks[prior.lastIdx] : null;
   } else { await Library.clearImport(key); await Library.removeImages(key); }
   const checkpoint = async next => {
     const li = lastPara ? blocks.lastIndexOf(lastPara) : -1, keep = li >= 0 ? li : blocks.length; // the open paragraph may still grow
     if (keep > saved) { await Library.putImportChunk(key, chunks++, blocks.slice(saved, keep)); saved = keep; }
-    await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li });
+    await Library.putImport({ id: key + '|meta', key, v: IMPORT_V, title: file.name, total: pdf.numPages, next, chapter, figN, chunks, tail: blocks.slice(saved), lastIdx: li, lastVn, tops, names: names.save() });
   };
   for (let p = start; p <= pdf.numPages; p++) {
     if (ctl.stopped?.()) throw ABORT;
@@ -2039,6 +2271,7 @@ async function readPDF(file, key, ctl = {}) {
       }
     }
 
+    items = names.fix(items);
     let gx = findGutter(items, vx0, W);
     // Some scans carry hidden text that runs straight across both columns, so its lines can't tell the columns
     // apart. Read the words from the picture instead and look for the columns there. A book that turns out to
@@ -2059,7 +2292,7 @@ async function readPDF(file, key, ctl = {}) {
     const heads = [];
     const colW = ls => Math.max(1, ...ls.map(l => l.x1 - l.x0)), w0 = colW(L.c0), w1 = colW(L.c1);
     const short = (l, w) => l.t.length < 32 && l.x1 - l.x0 < w * 0.6;
-    while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= Math.max(2, L.c0[0].h) && short(L.c0[0], w0) && short(L.c1[0], w1)) {
+    while (heads.length < 3 && L.c0.length > 1 && L.c1.length > 1 && Math.abs(L.c0[0].y - L.c1[0].y) <= Math.max(2, L.c0[0].h) && short(L.c0[0], w0) && short(L.c1[0], w1) && !VERSE_START.test(L.c0[0].t) && !VERSE_START.test(L.c1[0].t)) {
       const a = L.c0.shift(), b = L.c1.shift(); heads.push({ ...a, x1: b.x1, t: a.t + ' — ' + b.t, head: true });
     }
 
@@ -2091,6 +2324,18 @@ async function readPDF(file, key, ctl = {}) {
       }
     }
     const used = new Set(figs.flatMap(f => [...f.used]));
+    // The top two lines of the page (and the bottom one): when the same words were at the top or bottom of one
+    // of the last few pages, they're the book's running head or foot, not the story, and aren't read again.
+    const all = [...L.full, ...L.c0, ...L.c1].sort((a, b) => b.y - a.y), edge = [];
+    for (const l of all.slice(0, 2)) if (l.y > vy1 - H * 0.2) edge.push(l);
+    if (all.length > 4 && all[all.length - 1].y < vy0 + H * 0.12) edge.push(all[all.length - 1]);
+    const repeated = new Set(), seenTop = new Set(tops.flat());
+    for (const l of edge) {
+      const k = headKey(l.t);
+      if (k.length < 4 || l.t.length > 60 || VERSE_START.test(l.t)) continue;
+      if (seenTop.has(k)) repeated.add(l);
+    }
+    tops = [...tops.slice(-5), edge.map(l => headKey(l.t)).filter(k => k.length >= 4)];
     function lineBox(l, off) { return [p, ...box(l.x0, l.y + l.h * 0.85, l.x1, l.y - l.h * 0.3), off]; }
     // Reading order: full-width lines above the columns, the left column, the right column, then anything below.
     const entries = col => [...(col === -1 ? L.full : col === 0 ? L.c0 : L.c1).filter(l => !used.has(l)).map(l => ({ y: l.y, line: l })),
@@ -2106,13 +2351,17 @@ async function readPDF(file, key, ctl = {}) {
         const t = e.line.t;
         if (/^\d{1,4}$/.test(t)) continue; // page numbers
         if (CHAPTER_LINE.test(t) && t.length < 40) { const label = titleCase(t); if (label !== chapter) { chapter = label; blocks.push({ chap: label }); lastPara = null; } cur = null; prevY = null; continue; }
-        if (e.line.head) { blocks.push({ text: t, page: p, at: [lineBox(e.line, 0)] }); cur = null; prevY = null; continue; } // a running head never swallows the next verse
+        // Running heads ("El Istakhlaag — The Creation"), page labels ("Tablet 3:6") and anything else repeated at
+        // the top of every page aren't read: they'd break into the story on every page. They don't end the verse
+        // that runs on from the last page either.
+        if (e.line.head || repeated.has(e.line) || PAGE_LABEL.test(t)) continue;
         // A centred heading or title is a paragraph of its own: it doesn't run on into the verse after it, and
-        // nothing from the end of the last page is carried into it.
-        if (e.line.title) { blocks.push({ text: t, page: p, at: [lineBox(e.line, 0)], title: true }); cur = null; prevY = null; lastPara = null; continue; }
-        const breakHere = !cur || (med && prevY - e.y > med * 1.5) || VERSE_START.test(t);
-        if (!cur && lastPara && prevY === null && !VERSE_START.test(t) && !/[.!?:"”']$/.test(lastPara.text)) cur = lastPara; // carried over from the last column or page
-        else if (breakHere) { cur = { text: '', page: p, at: [] }; blocks.push(cur); }
+        // nothing from the end of the last page is carried into it. Verses under it count from 1 again.
+        if (e.line.title) { blocks.push({ text: t, page: p, at: [lineBox(e.line, 0)], title: true }); cur = null; prevY = null; lastPara = null; lastVn = 0; continue; }
+        const vn = verseNo(t, lastVn);
+        const breakHere = !cur || (med && prevY - e.y > med * 1.5) || vn != null;
+        if (!cur && lastPara && prevY === null && vn == null && !/[.!?:"”']$/.test(lastPara.text)) cur = lastPara; // carried over from the last column or page
+        else if (breakHere) { cur = { text: '', page: p, at: [] }; if (vn != null) { cur.vn = vn; lastVn = vn; } blocks.push(cur); }
         // Where each printed line sits on the page, and where its words start in the paragraph, so the page view
         // can light up the lines being read.
         const off = !cur.text ? 0 : cur.text.endsWith('-') ? cur.text.length - 1 : cur.text.length + 1;
@@ -2141,7 +2390,7 @@ function sectioner(total) {
       let newSec = false;
       if (pending) { sec = { title: pending }; pending = null; newSec = true; }
       else if (!seenChap) { const g = Math.floor((b.page - 1) / 10); if (!sec || sec.g !== g) { sec = { g, title: 'Pages ' + (g * 10 + 1) + '–' + Math.min(total, g * 10 + 10) }; newSec = true; } }
-      out.push({ newSec, title: sec.title, p: b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words, at: b.at } : b.at ? { text: b.text, at: b.at, ...(b.title && { title: true }) } : b.text });
+      out.push({ newSec, title: sec.title, p: b.fig ? { fig: b.fig, w: b.w, h: b.h, caption: b.caption, words: b.words, at: b.at } : b.at ? { text: b.text, at: b.at, ...(b.title && { title: true }), ...(b.vn != null && { vn: b.vn }), page: b.page } : b.text });
     }
     return out;
   };
@@ -2236,7 +2485,9 @@ async function openFile(file) {
     else throw new Error('That file type isn’t supported. Open a PDF, EPUB or plain text file.');
     busy('Finding the mood of each passage…');
     await new Promise(r => setTimeout(r, 30));
-    const raw = { key, title: b.title, sections: JSON.parse(JSON.stringify(b.sections)), added: Date.now() };
+    const fix = fixer(await fixesFor(key)); // your fixes from the last time this book was opened
+    b.sections = b.sections.map(sec => ({ ...sec, paras: sec.paras.map(fix).filter(p => p != null) }));
+    const raw = { key, title: b.title, sections: JSON.parse(JSON.stringify(b.sections)), fixes: fix.list(), added: Date.now() };
     loadBook(b, key);
     const saved = await Library.put(raw);
     if (!saved) Library.removeFile(key);
@@ -2259,6 +2510,7 @@ async function openFile(file) {
 // book is saved to the library once it's all in.
 async function openPDF(file, key, my) {
   await Library.putFile(key, file);
+  const had = await fixesFor(key), fix = fixer(had); // your fixes from the last time this book was read in
   const name = file.name.replace(/\.pdf$/i, ''), raw = [];
   let toItems = null, taken = 0, shown = false;
   const stopped = () => my !== importTok;
@@ -2266,7 +2518,7 @@ async function openPDF(file, key, my) {
   const onBlocks = async (blocks, upto, page, total) => {
     if (stopped()) throw ABORT;
     toItems ||= sectioner(total);
-    const items = toItems(blocks.slice(taken, upto)); taken = upto;
+    const items = fix.items(toItems(blocks.slice(taken, upto))); taken = upto;
     if (shown) { if (items.length) extendBook(items, false); return; }
     for (const it of items) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
     // Open the book once a few pages are in (or straight away when continuing an interrupted import).
@@ -2279,7 +2531,7 @@ async function openPDF(file, key, my) {
   };
   const r = await readPDF(file, key, { onBlocks, stopped });
   if (stopped()) return;
-  const rest = toItems ? toItems(r.blocks.slice(taken)) : [];
+  const rest = toItems ? fix.items(toItems(r.blocks.slice(taken))) : [];
   if (!shown) {
     for (const it of rest) { if (it.newSec || !raw.length) raw.push({ title: it.title, paras: [] }); raw[raw.length - 1].paras.push(it.p); }
     if (!raw.some(s => s.paras.length)) throw new Error('No text or pictures could be read from this PDF.');
@@ -2287,10 +2539,13 @@ async function openPDF(file, key, my) {
   } else extendBook(rest, true);
   bgImport = false; busy(null);
   book.title = r.title; $('#bookTitle').textContent = r.title;
-  const saved = await Library.put({ key, title: r.title, sections: JSON.parse(JSON.stringify(raw)), added: Date.now() });
+  const fixes = fix.list();
+  const saved = await Library.put({ key, title: r.title, sections: JSON.parse(JSON.stringify(raw)), fixes, added: Date.now() });
   if (!saved) Library.removeFile(key);
+  if (fixes.length) store.set('fixes:' + key, fixes);
+  const missed = fix.missed(), kept = fixes.length - missed;
   say(r.title, saved
-    ? ' is all read in and saved to your library. It will reopen where you stop.'
+    ? ' is all read in and saved to your library. It will reopen where you stop.' + (had.legacy ? ' If a line you fixed earlier lost your wording, tap Fix text there and choose “Use my earlier wording”.' : '') + (fixes.length ? ' ' + (!missed ? (kept === 1 ? 'Your fix is' : 'All ' + kept + ' of your fixes are') : kept + ' of your ' + fixes.length + ' fixes ' + (kept === 1 ? 'is' : 'are')) + ' in place' + (missed ? '; ' + missed + ' couldn’t be matched to the new text and ' + (missed === 1 ? 'is' : 'are') + ' kept with the book' : '') + '.' : '')
     : ' is all read in. This phone wouldn’t let the app save the book, so you’ll need to open the file again next time. Your place is still remembered.');
 }
 $('#file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
@@ -2352,7 +2607,7 @@ const Library = (() => {
     async put(b) { try { await tx('readwrite', st => st.put(b)); return true; } catch { return false; } },
     async get(k) { try { return await tx('readonly', st => st.get(k)); } catch { return null; } },
     async all() { try { return (await tx('readonly', st => st.getAll())) || []; } catch { return []; } },
-    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} await this.removeImages(k); await this.removeFile(k); },
+    async remove(k) { try { await tx('readwrite', st => st.delete(k)); } catch {} try { await tx('readwrite', st => st.delete('before|' + k), 'imports'); } catch {} await this.removeImages(k); await this.removeFile(k); },
     // The file is kept as it is; if this phone won't store a file that way, as its bytes.
     async putFile(key, file) {
       try { await tx('readwrite', st => st.put({ key, blob: file }), 'files'); return true; } catch {}
@@ -2368,6 +2623,9 @@ const Library = (() => {
     async importBlocks(k, n) { const out = []; for (let i = 0; i < n; i++) { const c = await tx('readonly', st => st.get(k + '|c' + i), 'imports').catch(() => null); if (c) out.push(...c.blocks); } return out; },
     async clearImport(k) { try { await tx('readwrite', st => st.delete(IDBKeyRange.bound(k + '|', k + '|\uffff')), 'imports'); } catch {} },
     async unfinishedImports() { try { return ((await tx('readonly', st => st.getAll(), 'imports')) || []).filter(r => r.id.endsWith('|meta')); } catch { return []; } },
+    // The version of a book from before it was read in again, for fixes made before fixes were listed.
+    async putBefore(k, sections) { try { await tx('readwrite', st => st.put({ id: 'before|' + k, sections }), 'imports'); } catch {} },
+    async getBefore(k) { try { return await tx('readonly', st => st.get('before|' + k), 'imports'); } catch { return null; } },
     async removeImages(k) { try { await tx('readwrite', st => st.delete(IDBKeyRange.bound(k + '#', k + '#\uffff')), 'images'); } catch {} }
   };
 })();
@@ -2387,6 +2645,18 @@ async function renderLibrary() {
     open.append(t, meta, bar);
     open.addEventListener('click', () => openSaved(b.key));
     li.appendChild(open);
+    // Read a PDF in again with the latest reader (better lines, no running heads). Your fixes are carried over.
+    if (!b.sample && /\.pdf:\d+$/i.test(b.key)) {
+      const again = document.createElement('button'); again.className = 'lib-rm'; again.type = 'button'; again.textContent = 'Read again';
+      again.setAttribute('aria-label', 'Read ' + b.title + ' in again, keeping your fixes');
+      again.addEventListener('click', async () => {
+        const f = await Library.getFile(b.key);
+        if (!f) { toast('This book’s file isn’t saved on this phone. Tap Open and choose it again; your fixes are kept.', 5000); return; }
+        toggleLibrary(false);
+        openFile(new File([f], b.key.replace(/:\d+$/, ''), { type: 'application/pdf' }));
+      });
+      li.appendChild(again);
+    }
     if (!b.sample) {
       const rm = document.createElement('button'); rm.className = 'lib-rm'; rm.type = 'button'; rm.textContent = 'Remove';
       rm.setAttribute('aria-label', 'Remove ' + b.title + ' from library');
